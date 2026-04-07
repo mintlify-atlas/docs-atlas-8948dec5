@@ -1,0 +1,158 @@
+---
+title: "Catálogo de productos"
+description: "Explora, filtra y cotiza equipos directamente desde el catálogo público de GIO TECH."
+keywords: ["catálogo", "productos", "filtros", "búsqueda", "financiación", "planes de pago"]
+---
+
+El catálogo es la página principal de GIO TECH (`/` y `/catalogo`). Muestra todos los productos activos de Firestore con herramientas de búsqueda, filtrado y ordenamiento en tiempo real.
+
+<Note>
+  Al abrir el catálogo por primera vez en la sesión, aparece un **modal de bienvenida** que explica que los valores de cuotas son simulaciones aproximadas. La cotización final se confirma con un asesor tras la validación de crédito.
+</Note>
+
+## Búsqueda y filtros
+
+La barra de herramientas tiene tres controles independientes que se pueden combinar:
+
+<Tabs>
+  <Tab title="Búsqueda de texto">
+    El campo de texto busca simultáneamente en el nombre y la descripción del producto. La comparación es **insensible a tildes y mayúsculas** gracias a la función `normalizeText`, por lo que `samsung`, `Samsung` y `Sámsung` producen los mismos resultados.
+  </Tab>
+  <Tab title="Filtro por marca">
+    El desplegable filtra por las siguientes marcas registradas en el catálogo:
+
+    | Valor interno | Etiqueta visible |
+    |---------------|-----------------|
+    | `samsung`     | Samsung          |
+    | `redmi`       | Redmi            |
+    | `tecno`       | Tecno            |
+    | `iphone`      | iPhone           |
+    | `infinix`     | Infinix          |
+    | `motorola`    | Motorola         |
+    | `huawei`      | Huawei           |
+
+    El filtro también actúa sobre el campo `descripcion`, por lo que un equipo que menciona la marca en su descripción también aparece en los resultados.
+  </Tab>
+  <Tab title="Rango de precio">
+    El filtro de precio trabaja sobre el campo `contado` del producto:
+
+    | Rango | Descripción |
+    |-------|-------------|
+    | Todos los precios | Sin restricción |
+    | `0–500000` | Hasta $500.000 |
+    | `500000–1000000` | $500.000 – $1.000.000 |
+    | `1000000–2000000` | $1.000.000 – $2.000.000 |
+    | `2000000–4000000` | $2.000.000 – $4.000.000 |
+    | `4000000–999999999` | Más de $4.000.000 |
+  </Tab>
+  <Tab title="Ordenamiento">
+    El desplegable de orden permite cuatro modos:
+
+    - **Precio: Menor a Mayor** — ordena ascendente por `contado`
+    - **Precio: Mayor a Menor** — ordena descendente por `contado`
+    - **Nombre: A – Z** — orden alfabético ascendente
+    - **Nombre: Z – A** — orden alfabético descendente
+
+    El modo **Ordenar por…** (predeterminado) respeta el orden original de Firestore.
+  </Tab>
+</Tabs>
+
+<Tip>
+  Los tres controles se aplican en conjunto. Puedes, por ejemplo, buscar "pro", filtrar por Samsung y ordenar por precio ascendente para ver solo los Galaxy Pro más económicos.
+</Tip>
+
+## Tarjeta de producto
+
+Cada producto se muestra en una `ProductCard` con la siguiente información visible:
+
+- Imagen del equipo (lazy loading)
+- Nombre del producto
+- Precio de contado (o precio promocional si hay una promo activa)
+- Botón **Ver detalles** que abre el modal de detalle
+
+### Insignias en la tarjeta
+
+Las tarjetas pueden mostrar hasta dos insignias superpuestas, controladas por el campo `badgeMode`:
+
+<CardGroup cols={2}>
+  <Card title="Insignia NUEVO" icon="tag">
+    Se activa cuando el campo `nuevo` es `true` en Firestore. El texto (`nuevoBadgeText`) y el color de fondo (`nuevoBadgeBg`) son configurables desde el Admin Panel.
+  </Card>
+  <Card title="Insignia PROMO" icon="percent">
+    Se activa cuando el campo `promo` es `true`. Opcionalmente respeta una ventana temporal (`promoStart` / `promoEnd`). Texto (`promoBadgeText`) y color (`promoBadgeBg`) configurables.
+  </Card>
+</CardGroup>
+
+El campo `badgeMode` del producto controla cuáles badges aparecen: `"none"`, `"promo"`, `"nuevo"` o `"ambos"`. Cuando una promo está activa y tiene `promoPrice` definido, la tarjeta muestra el precio original tachado y el precio promocional resaltado. El borde y la sombra de la tarjeta también cambian al color de `promoHighlight`.
+
+## Modal de detalle y planes de pago
+
+Al hacer clic en una tarjeta se abre el modal de detalle del producto. Dependiendo de la configuración del producto en Firestore, el modal muestra uno de dos planes de financiación:
+
+<AccordionGroup>
+  <Accordion title="Plan estándar (crédito en cuotas)" icon="credit-card" defaultOpen>
+    Se muestra cuando `solo12Meses` es `false` o no está definido.
+
+    - **Precio contado** — valor del campo `contado`
+    - **Cuota inicial** — valor del campo `cuotaInicial` (se muestra solo si es mayor a 0)
+    - **16 cuotas quincenales** — valor del campo `cuotas6`
+    - **8 cuotas mensuales** — valor del campo `cuotas8`
+  </Accordion>
+  <Accordion title="Plan especial 12 meses" icon="calendar" defaultOpen>
+    Se muestra cuando `solo12Meses: true` y el campo `cuotas12` tiene un valor definido.
+
+    - **Precio contado** — valor del campo `contado`
+    - **Cuota inicial** — valor del campo `cuotaInicial` (se muestra solo si es mayor a 0)
+    - **12 cuotas mensuales** — valor del campo `cuotas12`
+
+    La caja del plan especial tiene un borde azul y un badge **PLAN ESPECIAL** para distinguirlo visualmente del plan estándar.
+  </Accordion>
+</AccordionGroup>
+
+Desde el modal, el cliente elige entre dos acciones:
+
+1. **Comprar Ahora** — abre WhatsApp directamente con un mensaje prellenado para el asesor asignado.
+2. **Añadir al Carrito** — agrega el producto a la lista de intereses para enviar una cotización grupal.
+
+En ambos casos se solicita elegir la modalidad de pago (contado o crédito) antes de continuar.
+
+<Warning>
+  Los valores de cuotas son simulaciones. La cotización real se confirma con un asesor tras la validación de crédito del cliente.
+</Warning>
+
+## Asistente de IA (Gemini)
+
+El catálogo incluye un botón flotante azul en la esquina inferior derecha que activa el **asistente de IA** alimentado por Google Gemini.
+
+<Columns cols={2}>
+  <Card title="Recomendaciones personalizadas" icon="robot">
+    El asistente recibe el listado completo de productos y puede sugerir equipos según el presupuesto, uso o preferencias del cliente expresadas en lenguaje natural.
+  </Card>
+  <Card title="Escalar a asesor humano" icon="message-circle">
+    Desde el panel del chat hay un botón **Hablar con un asesor** que abre WhatsApp para continuar la conversación con un asesor real.
+  </Card>
+</Columns>
+
+## Comparación de productos
+
+El `CompareModal` permite comparar hasta **3 equipos** en una tabla lado a lado. Las columnas de la comparación son:
+
+| Campo | Descripción |
+|-------|-------------|
+| Equipo | Imagen y nombre del producto |
+| Precio contado | Precio en efectivo |
+| 16 quincenales | Cuota quincenal estándar |
+| 8 mensuales | Cuota mensual estándar |
+| RAM (GB) | Memoria RAM |
+| Almacenamiento (GB) | Capacidad de almacenamiento |
+| Batería (mAh) | Capacidad de batería |
+| Cámara (MP) | Megapíxeles de la cámara principal |
+| Pantalla (") | Tamaño de pantalla en pulgadas |
+
+<Note>
+  Cuando el producto no tiene especificaciones técnicas definidas como campos estructurados, el modal intenta extraerlas automáticamente del texto libre del campo `descripcion`.
+</Note>
+
+## Seguimiento de productos populares
+
+Cada vez que un `ProductCard` es montado en el DOM se registra una vista del producto mediante `recordProductView(producto.id)`. Este contador se almacena en la colección `producto_stats` de Firestore y permite al hook `usePopularProducts` identificar los productos más vistos, que se destacan en la sección **Productos Destacados** de la Landing Page.

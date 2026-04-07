@@ -1,0 +1,92 @@
+{
+  "projectType": "saas",
+  "projectName": "GIO TECH",
+  "projectDescription": "Plataforma integral para tienda de telefonía en Puerto Asís, Putumayo: gestión de ventas de celulares con financiación, servicio técnico especializado y panel de administración e inventario en tiempo real.",
+  "theme": "almond",
+  "primaryColor": "#e3b5b5",
+  "lightColor": "#595959",
+  "darkColor": "#acacac",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentación",
+        "groups": [
+          {
+            "group": "Introducción",
+            "pages": ["introduction", "getting-started"]
+          },
+          {
+            "group": "Funcionalidades",
+            "pages": [
+              "features/catalogo",
+              "features/servicio-tecnico",
+              "features/carrito-y-whatsapp"
+            ]
+          },
+          {
+            "group": "Paneles de Gestión",
+            "pages": [
+              "panels/admin-panel",
+              "panels/asesor-panel"
+            ]
+          },
+          {
+            "group": "Configuración",
+            "pages": [
+              "configuration/firebase-setup",
+              "configuration/environment-variables",
+              "configuration/deployment"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Referencia Técnica",
+        "groups": [
+          {
+            "group": "Arquitectura",
+            "pages": [
+              "reference/architecture",
+              "reference/firebase-schema"
+            ]
+          },
+          {
+            "group": "Servicios y Hooks",
+            "pages": [
+              "reference/services",
+              "reference/hooks",
+              "reference/contexts"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Catálogo de productos con búsqueda, filtros por marca y precio, y ordenamiento",
+    "Integración directa con WhatsApp para cotizaciones y asesoría",
+    "Planes de financiación: contado, 16 cuotas quincenales, 8 cuotas mensuales y plan exclusivo 12 meses",
+    "Panel de administración completo: gestión de productos, asesores, carrusel y configuración del negocio",
+    "Panel de asesor con link personalizado y gestión del número de WhatsApp",
+    "Servicio técnico especializado con diagnóstico reembolsable y garantía de 15 días",
+    "Asistente de IA (Gemini) integrado en el catálogo para recomendaciones de productos",
+    "Sistema de roles: admin, asesor y cliente con Firebase Authentication",
+    "Carrito de compras flotante con contexto de React",
+    "Temas de temporada configurables (Navidad, Halloween, San Valentín) sin código"
+  ],
+  "publicApiSurface": [
+    "subscribeToProducts(callback, onError) — Firestore real-time listener para productos",
+    "createProduct(productData) — Crea un nuevo producto en Firestore",
+    "updateProduct(productId, productData) — Actualiza un producto existente",
+    "deleteProduct(productId) — Elimina un producto de Firestore",
+    "searchProducts(filters, limitCount) — Búsqueda de productos con filtros",
+    "subscribeToConfig(callback, onError) — Listener en tiempo real para configuración del negocio",
+    "updateConfig(configData) — Actualiza la configuración del negocio",
+    "useProducts() — Hook para obtener la lista de productos en tiempo real",
+    "useConfig() — Hook para obtener la configuración del negocio",
+    "usePopularProducts() — Hook para obtener IDs de productos más vistos",
+    "useAuth() — Hook de autenticación de usuario",
+    "CartContext — Contexto para el carrito de compras",
+    "WhatsappNumberContext — Contexto para el número de WhatsApp del asesor activo"
+  ]
+}

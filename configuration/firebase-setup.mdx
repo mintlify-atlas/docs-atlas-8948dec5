@@ -1,0 +1,140 @@
+---
+title: "Configuración de Firebase"
+description: "Cómo crear y conectar el proyecto Firebase que respalda GIO TECH."
+---
+
+GIO TECH usa tres servicios de Firebase: **Authentication**, **Firestore** y **Storage**. Esta guía explica cómo aprovisionar cada uno desde cero.
+
+## Servicios utilizados
+
+<CardGroup cols={3}>
+  <Card title="Authentication" icon="lock">
+    Inicio de sesión por correo y contraseña. Controla el acceso de administradores y asesores mediante roles almacenados en Firestore.
+  </Card>
+  <Card title="Firestore" icon="database">
+    Base de datos principal. Contiene las colecciones `productos`, `usuarios`, `configuracion`, `carrusel` y `producto_stats`.
+  </Card>
+  <Card title="Storage" icon="image">
+    Almacena imágenes: el logotipo de la tienda, fotos de productos y otros recursos multimedia.
+  </Card>
+</CardGroup>
+
+## Pasos de configuración
+
+<Steps>
+  <Step title="Crear el proyecto en Firebase">
+    1. Ve a [console.firebase.google.com](https://console.firebase.google.com) e inicia sesión con tu cuenta de Google.
+    2. Haz clic en **Agregar proyecto**.
+    3. Ingresa un nombre (por ejemplo, `gio-tech`) y sigue el asistente.
+    4. Puedes desactivar Google Analytics si no lo necesitas.
+  </Step>
+
+  <Step title="Habilitar Authentication">
+    1. En el panel lateral, selecciona **Build → Authentication**.
+    2. Haz clic en **Comenzar**.
+    3. En la pestaña **Sign-in method**, habilita el proveedor **Correo electrónico/Contraseña**.
+    4. Guarda los cambios.
+  </Step>
+
+  <Step title="Crear la base de datos Firestore">
+    1. Ve a **Build → Firestore Database**.
+    2. Haz clic en **Crear base de datos**.
+    3. Selecciona **Modo de producción** (las reglas de seguridad se configurarán en el siguiente paso).
+    4. Elige la región más cercana a Colombia (por ejemplo, `us-east1`).
+  </Step>
+
+  <Step title="Habilitar Storage">
+    1. Ve a **Build → Storage**.
+    2. Haz clic en **Comenzar**.
+    3. Acepta las reglas predeterminadas por ahora; puedes ajustarlas después según tus necesidades.
+  </Step>
+
+  <Step title="Registrar la aplicación web">
+    1. En la pantalla principal del proyecto, haz clic en el ícono **`</>`** (Web).
+    2. Asigna un apodo a la app (por ejemplo, `gio-tech-web`).
+    3. Activa **Firebase Hosting** si planeas usarlo.
+    4. Firebase mostrará un objeto de configuración. Copia esos valores; los necesitarás para el archivo `.env`.
+
+    El objeto de configuración tiene esta estructura:
+
+    ```javascript firebase.js
+    const firebaseConfig = {
+      apiKey: "TU_API_KEY",
+      authDomain: "TU_PROJECT_ID.firebaseapp.com",
+      projectId: "TU_PROJECT_ID",
+      storageBucket: "TU_PROJECT_ID.firebasestorage.app",
+      messagingSenderId: "TU_SENDER_ID",
+      appId: "TU_APP_ID",
+    };
+    ```
+  </Step>
+
+  <Step title="Crear el primer usuario administrador">
+    El sistema de roles depende de un documento en Firestore, por lo que el primer admin debe crearse manualmente.
+
+    1. En **Authentication → Usuarios**, haz clic en **Agregar usuario**.
+    2. Ingresa el correo y la contraseña del administrador. Copia el **UID** que Firebase asigna automáticamente.
+    3. Ve a **Firestore → Datos** y abre (o crea) la colección `usuarios`.
+    4. Crea un documento cuyo ID sea exactamente el UID copiado:
+
+    ```json usuarios/{uid}
+    {
+      "rol": "admin",
+      "email": "admin@ejemplo.com",
+      "nombreCompleto": "Nombre del Administrador"
+    }
+    ```
+
+    <Warning>
+      El campo `rol` debe ser exactamente `"admin"` (en minúsculas). Las reglas de seguridad de Firestore validan este valor para autorizar operaciones de escritura.
+    </Warning>
+  </Step>
+</Steps>
+
+## Reglas de seguridad de Firestore
+
+Copia las siguientes reglas en **Firestore → Reglas** y publícalas. Son las reglas que usa el proyecto actualmente.
+
+```javascript firestore.rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- NUEVA REGLA PARA PRODUCTO_STATS ---
+    match /producto_stats/{statId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // --- NUEVA REGLA PARA EL CARRUSEL ---
+    match /carrusel/{slideId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // Reglas para la colección 'productos' (Catálogo público)
+    match /productos/{productId} {
+      allow read: if true;  
+      allow create, update, delete: if request.auth != null && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // Reglas para la colección 'configuracion'
+    match /configuracion/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // Reglas para la colección 'usuarios'
+    match /usuarios/{userId} {
+      allow read: if true; 
+      allow create: if request.auth != null && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow update: if request.auth != null && (request.auth.uid == userId || get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin');
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+  }
+}
+```
+
+<Info>
+  Las colecciones `productos`, `carrusel` y `configuracion` son de **lectura pública** para que el catálogo sea visible sin iniciar sesión. Solo los administradores pueden modificarlas.
+</Info>

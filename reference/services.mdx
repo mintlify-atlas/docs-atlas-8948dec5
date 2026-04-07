@@ -1,0 +1,408 @@
+---
+title: "Servicios (capa de datos)"
+description: "Funciones que abstraen las operaciones sobre Firebase Firestore y servicios externos, manteniendo los componentes desacoplados de la infraestructura."
+---
+
+La capa de servicios es el puente entre los componentes de React y los backends externos (Firestore y la API de Groq). Ningún componente accede directamente a Firebase; todo pasa por estas funciones.
+
+<Columns cols={2}>
+  <Card title="product.service.js" icon="box">
+    CRUD y suscripciones en tiempo real sobre la colección `productos`.
+  </Card>
+  <Card title="config.service.js" icon="gear">
+    Lectura y escritura de la configuración global en `configuracion/general`.
+  </Card>
+  <Card title="gemini.service.js" icon="robot">
+    Asistente de ventas con IA (Groq / LLaMA) y generación de mensajes de WhatsApp.
+  </Card>
+  <Card title="productStats.service.js" icon="chart-bar">
+    Registro de vistas de productos y consulta de los más populares.
+  </Card>
+</Columns>
+
+---
+
+## product.service.js
+
+Gestiona la colección `productos` en Firestore. Todos los documentos de esta colección se mapean con su `id` de Firestore incluido en el objeto devuelto.
+
+### `subscribeToProducts`
+
+Abre un listener en tiempo real sobre la colección `productos`. Cada vez que un documento cambie, se invoca `callback` con el array actualizado.
+
+```javascript
+subscribeToProducts(callback, onError) → function
+```
+
+<ParamField path="callback" type="function" required>
+  Recibe `(products: object[])` — el array completo de productos actualizado con cada cambio en Firestore.
+</ParamField>
+
+<ParamField path="onError" type="function">
+  Recibe `(error: Error)` en caso de fallo del listener. Opcional.
+</ParamField>
+
+<ResponseField name="returns" type="function">
+  Función de desuscripción (`unsubscribe`). Llámala en el `cleanup` de `useEffect` para evitar memory leaks.
+</ResponseField>
+
+```javascript subscribeToProducts — ejemplo
+import { subscribeToProducts } from '../services/product.service';
+
+useEffect(() => {
+  const unsubscribe = subscribeToProducts(
+    (products) => console.log('Productos actualizados:', products),
+    (error) => console.error('Error:', error)
+  );
+
+  return () => unsubscribe(); // limpieza al desmontar
+}, []);
+```
+
+---
+
+### `createProduct`
+
+Agrega un nuevo documento a la colección `productos`.
+
+```javascript
+createProduct(productData) → Promise<string>
+```
+
+<ParamField path="productData" type="object" required>
+  Objeto con los campos del producto. El ID lo genera Firestore automáticamente.
+</ParamField>
+
+<ResponseField name="returns" type="Promise<string>">
+  Promesa que resuelve con el ID del documento recién creado.
+</ResponseField>
+
+```javascript createProduct — ejemplo
+import { createProduct } from '../services/product.service';
+
+const nuevoId = await createProduct({
+  nombre: 'Samsung Galaxy A55',
+  contado: 1850000,
+  cuotas6: 340000,
+  cuotas8: 265000,
+  imagen: 'https://...',
+});
+
+console.log('Producto creado con ID:', nuevoId);
+```
+
+---
+
+### `updateProduct`
+
+Actualiza un documento existente en `productos` mediante `updateDoc` de Firestore (merge parcial).
+
+```javascript
+updateProduct(productId, productData) → Promise<void>
+```
+
+<ParamField path="productId" type="string" required>
+  ID del documento en Firestore.
+</ParamField>
+
+<ParamField path="productData" type="object" required>
+  Campos a actualizar. Solo los campos incluidos se modifican; los demás conservan su valor.
+</ParamField>
+
+<ResponseField name="returns" type="Promise<void>">
+  Promesa que resuelve cuando la escritura es exitosa.
+</ResponseField>
+
+```javascript updateProduct — ejemplo
+import { updateProduct } from '../services/product.service';
+
+await updateProduct('abc123', { contado: 1750000 });
+```
+
+---
+
+### `deleteProduct`
+
+Elimina permanentemente un documento de la colección `productos`.
+
+```javascript
+deleteProduct(productId) → Promise<void>
+```
+
+<ParamField path="productId" type="string" required>
+  ID del documento a eliminar.
+</ParamField>
+
+<ResponseField name="returns" type="Promise<void>">
+  Promesa que resuelve cuando el documento ha sido eliminado.
+</ResponseField>
+
+<Warning>
+  Esta operación es irreversible. No existe papelera de reciclaje en Firestore.
+</Warning>
+
+```javascript deleteProduct — ejemplo
+import { deleteProduct } from '../services/product.service';
+
+await deleteProduct('abc123');
+```
+
+---
+
+### `searchProducts`
+
+Ejecuta una consulta puntual (`getDocs`) con filtros dinámicos. Los resultados siempre se ordenan por `contado` ascendente.
+
+```javascript
+searchProducts(filters, limitCount) → Promise<object[]>
+```
+
+<ParamField path="filters" type="object[]" default="[]">
+  Array de objetos de filtro. Cada filtro tiene la forma:
+
+  <Expandable title="Propiedades de un filtro">
+    <ResponseField name="field" type="string" required>
+      Nombre del campo de Firestore por el que filtrar (p. ej. `"marca"`).
+    </ResponseField>
+    <ResponseField name="op" type="string" required>
+      Operador de comparación de Firestore: `"=="`, `"!="`, `">"`, `">="`, `"<"`, `"<="`, `"array-contains"`, etc.
+    </ResponseField>
+    <ResponseField name="value" type="any" required>
+      Valor con el que comparar.
+    </ResponseField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="limitCount" type="number" default="20">
+  Máximo de documentos a devolver.
+</ParamField>
+
+<ResponseField name="returns" type="Promise<object[]>">
+  Promesa que resuelve con el array de productos encontrados, cada uno con su `id` de Firestore.
+</ResponseField>
+
+```javascript searchProducts — ejemplo
+import { searchProducts } from '../services/product.service';
+
+// Buscar Samsung con precio de contado <= 2.000.000
+const resultados = await searchProducts(
+  [
+    { field: 'marca', op: '==', value: 'Samsung' },
+    { field: 'contado', op: '<=', value: 2000000 },
+  ],
+  10
+);
+```
+
+<Note>
+  `searchProducts` siempre añade `orderBy("contado", "asc")` a la consulta. Si un filtro de rango aplica sobre un campo distinto a `contado`, es posible que Firestore requiera un índice compuesto.
+</Note>
+
+---
+
+## config.service.js
+
+Gestiona el documento único `configuracion/general` en Firestore, que contiene los ajustes globales de la tienda (nombre, WhatsApp por defecto, colores, etc.).
+
+### `subscribeToConfig`
+
+Abre un listener en tiempo real sobre `configuracion/general`.
+
+```javascript
+subscribeToConfig(callback, onError) → function
+```
+
+<ParamField path="callback" type="function" required>
+  Recibe `(configData: object)` con los datos del documento. Si el documento no existe, recibe `{}`.
+</ParamField>
+
+<ParamField path="onError" type="function">
+  Recibe `(error: Error)` ante fallos del listener. Opcional.
+</ParamField>
+
+<ResponseField name="returns" type="function">
+  Función de desuscripción. Llámala en el cleanup de `useEffect`.
+</ResponseField>
+
+```javascript subscribeToConfig — ejemplo
+import { subscribeToConfig } from '../services/config.service';
+
+useEffect(() => {
+  const unsubscribe = subscribeToConfig(
+    (config) => setConfig(config),
+    (error) => console.error(error)
+  );
+
+  return () => unsubscribe();
+}, []);
+```
+
+---
+
+### `updateConfig`
+
+Escribe campos en `configuracion/general` usando `setDoc` con `merge: true`, por lo que los campos no incluidos en `configData` no se borran.
+
+```javascript
+updateConfig(configData) → Promise<void>
+```
+
+<ParamField path="configData" type="object" required>
+  Campos a actualizar. Se fusionan con el documento existente.
+</ParamField>
+
+<ResponseField name="returns" type="Promise<void>">
+  Promesa que resuelve cuando la escritura es exitosa.
+</ResponseField>
+
+```javascript updateConfig — ejemplo
+import { updateConfig } from '../services/config.service';
+
+await updateConfig({
+  nombre: 'GIO TECH',
+  logo: 'https://firebasestorage.googleapis.com/...',
+});
+```
+
+---
+
+## gemini.service.js
+
+Integra un asistente de ventas con IA usando la API de [Groq](https://groq.com/) y el modelo `llama-3.1-8b-instant`. A pesar del nombre del archivo, el backend real es Groq (no Gemini).
+
+<Info>
+  Requiere la variable de entorno `VITE_GROQ_API_KEY`. Sin ella, todas las llamadas devuelven un mensaje de error amigable en español.
+</Info>
+
+### `askGeminiAssistant`
+
+Envía la pregunta de un cliente al asistente IA con contexto del negocio y del catálogo, y devuelve la respuesta en texto plano.
+
+```javascript
+askGeminiAssistant(pregunta, productos) → Promise<string>
+```
+
+<ParamField path="pregunta" type="string" required>
+  Texto libre del cliente (p. ej. `"¿Cuál es el Samsung más barato que tienen?"`).
+</ParamField>
+
+<ParamField path="productos" type="object[]" required>
+  Array de productos del catálogo. El servicio toma los primeros 10 para construir el contexto y no superar los límites de tokens.
+</ParamField>
+
+<ResponseField name="returns" type="Promise<string>">
+  Texto de respuesta del asistente en español, con máximo 100 palabras. Ante errores o límites de tasa (HTTP 429), devuelve un mensaje de fallback sugiriendo contacto por WhatsApp.
+</ResponseField>
+
+```javascript askGeminiAssistant — ejemplo
+import { askGeminiAssistant } from '../services/gemini.service';
+
+const respuesta = await askGeminiAssistant(
+  '¿Tienen celulares con buena cámara por menos de dos millones?',
+  productos
+);
+
+console.log(respuesta);
+// "Sí, tenemos el Samsung Galaxy A55 a $1.850.000 con cámara de 50 MP..."
+```
+
+---
+
+### `generateWhatsAppMessage`
+
+Genera un mensaje preformateado y codificado para URL (`encodeURIComponent`) listo para usar en un enlace `wa.me`.
+
+```javascript
+generateWhatsAppMessage(productos) → string
+```
+
+<ParamField path="productos" type="object[]" required>
+  Array de productos seleccionados. Si el array está vacío, devuelve un mensaje genérico de bienvenida.
+</ParamField>
+
+<ResponseField name="returns" type="string">
+  Cadena codificada para URL con el listado de productos y sus precios en COP.
+</ResponseField>
+
+```javascript generateWhatsAppMessage — ejemplo
+import { generateWhatsAppMessage } from '../services/gemini.service';
+
+const mensaje = generateWhatsAppMessage([
+  { nombre: 'iPhone 15', contado: 4200000 },
+  { nombre: 'Samsung A55', contado: 1850000 },
+]);
+
+window.open(`https://wa.me/573223652569?text=${mensaje}`);
+```
+
+---
+
+## productStats.service.js
+
+Gestiona la colección `producto_stats` en Firestore para rastrear popularidad de productos por número de vistas.
+
+Cada documento en `producto_stats` tiene el siguiente esquema:
+
+<ResponseField name="productoId" type="string">
+  ID del producto en la colección `productos`.
+</ResponseField>
+<ResponseField name="vistas" type="number">
+  Contador de vistas acumuladas. Se incrementa atómicamente con `increment(1)`.
+</ResponseField>
+<ResponseField name="ultimaVista" type="Date">
+  Marca de tiempo de la última vez que se registró una vista.
+</ResponseField>
+
+### `recordProductView`
+
+Registra una vista para el producto indicado. Si el documento de estadísticas no existe, lo crea; si ya existe, incrementa el contador de forma atómica.
+
+```javascript
+recordProductView(productId) → Promise<void>
+```
+
+<ParamField path="productId" type="string" required>
+  ID del producto visto. Si se pasa un valor falsy, la función retorna inmediatamente sin hacer nada.
+</ParamField>
+
+<ResponseField name="returns" type="Promise<void>">
+  Promesa que resuelve tras escribir en Firestore. Los errores se capturan internamente y no se propagan.
+</ResponseField>
+
+```javascript recordProductView — ejemplo
+import { recordProductView } from '../services/productStats.service';
+
+// Llamar cuando el usuario abre la página de detalle de un producto
+useEffect(() => {
+  if (productId) {
+    recordProductView(productId);
+  }
+}, [productId]);
+```
+
+---
+
+### `getPopularProductsStats`
+
+Consulta los documentos de `producto_stats` ordenados por `vistas` de mayor a menor.
+
+```javascript
+getPopularProductsStats(limitCount) → Promise<object[]>
+```
+
+<ParamField path="limitCount" type="number" default="4">
+  Cantidad máxima de documentos a retornar.
+</ParamField>
+
+<ResponseField name="returns" type="Promise<object[]>">
+  Array de objetos de estadísticas, cada uno con `id`, `productoId`, `vistas` y `ultimaVista`. Ante errores devuelve `[]`.
+</ResponseField>
+
+```javascript getPopularProductsStats — ejemplo
+import { getPopularProductsStats } from '../services/productStats.service';
+
+const stats = await getPopularProductsStats(4);
+// [{ id: 'abc', productoId: 'abc', vistas: 42, ultimaVista: Date }, ...]
+
+const ids = stats.map(s => s.productoId || s.id);
+```

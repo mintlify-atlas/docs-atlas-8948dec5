@@ -1,97 +1,58 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "GIO TECH — Documentación"
+description: "Plataforma integral de ventas de telefonía, servicio técnico especializado y control de inventario en tiempo real para Puerto Asís, Putumayo."
 ---
 
-## Setting up
+Bienvenido a la documentación oficial de **GIO TECH**, la plataforma que centraliza la gestión de ventas de celulares, el servicio técnico y el control de inventario para tu tienda de telefonía.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Introducción" icon="circle-info" href="/introduction">
+    Conoce qué es GIO TECH, cómo está construido y cuáles son sus módulos principales.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Primeros pasos" icon="rocket" href="/getting-started">
+    Desde cero hasta tu primera venta: configura Firebase, levanta el proyecto y accede al panel de administración.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Catálogo de productos" icon="mobile-screen" href="/features/catalogo">
+    Filtra, busca y cotiza equipos directamente por WhatsApp con planes de financiación flexibles.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Panel de administración" icon="gauge" href="/panels/admin-panel">
+    Gestiona productos, asesores, el carrusel y la configuración del negocio sin tocar código.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Módulos principales
 
-Everything you need to create world-class documentation.
+GIO TECH cubre tres áreas clave del negocio en una sola aplicación:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={3}>
+  <Card title="Ventas y catálogo" icon="cart-shopping" href="/features/catalogo">
+    Catálogo con búsqueda, filtros por marca y precio, planes de financiación y cotización directa por WhatsApp.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Servicio técnico" icon="screwdriver-wrench" href="/features/servicio-tecnico">
+    Página editorial de servicio técnico con diagnóstico reembolsable y garantía escrita de 15 días.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Gestión interna" icon="users-gear" href="/panels/admin-panel">
+    Panel de administración y panel de asesores con roles diferenciados y autenticación Firebase.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## Guías de configuración
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<CardGroup cols={2}>
+  <Card title="Configuración de Firebase" icon="fire" href="/configuration/firebase-setup">
+    Crea tu proyecto Firebase y conecta Authentication, Firestore y Storage.
+  </Card>
+  <Card title="Variables de entorno" icon="key" href="/configuration/environment-variables">
+    Configura las variables `.env` necesarias para conectar la app a Firebase.
+  </Card>
+  <Card title="Despliegue" icon="cloud-arrow-up" href="/configuration/deployment">
+    Despliega GIO TECH en Firebase Hosting con un solo comando.
+  </Card>
+  <Card title="Referencia técnica" icon="code" href="/reference/architecture">
+    Arquitectura del proyecto, esquema de Firestore, servicios y hooks disponibles.
+  </Card>
+</CardGroup>
+
+<Note>
+  GIO TECH está construido con **React 19**, **Vite**, **Firebase** (Auth, Firestore, Storage) y **Bootstrap 5**. No requiere backend propio: toda la lógica de negocio corre en el cliente conectado a Firebase.
+</Note>

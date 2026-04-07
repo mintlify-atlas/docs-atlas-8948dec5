@@ -1,0 +1,266 @@
+---
+title: "Custom Hooks"
+description: "Hooks de React que encapsulan la lógica de suscripción a Firestore y autenticación, exponiendo estado reactivo listo para usar en cualquier componente."
+---
+
+Los hooks personalizados de GIO TECH envuelven los servicios de la capa de datos y gestionan el ciclo de vida de las suscripciones (apertura, actualización y limpieza). Los componentes nunca llaman directamente a los servicios de Firestore; consumen estos hooks.
+
+<Note>
+  `useProducts` y `useConfig` implementan un **singleton store externo** con `useSyncExternalStore`. Esto significa que múltiples componentes comparten una única suscripción a Firestore — no se crean conexiones duplicadas aunque el hook se use en varios lugares del árbol.
+</Note>
+
+<Columns cols={2}>
+  <Card title="useProducts" icon="boxes-stacked">
+    Lista reactiva de productos desde Firestore.
+  </Card>
+  <Card title="useConfig" icon="sliders">
+    Configuración global de la tienda en tiempo real.
+  </Card>
+  <Card title="useAuth" icon="user-shield">
+    Estado de autenticación y rol del usuario.
+  </Card>
+  <Card title="usePopularProducts" icon="fire">
+    IDs de los productos más vistos según `producto_stats`.
+  </Card>
+</Columns>
+
+---
+
+## useProducts
+
+Suscribe al componente a la colección `productos` de Firestore en tiempo real. Gracias al store externo compartido, todos los componentes que llamen a `useProducts` reciben el mismo array sin abrir múltiples listeners.
+
+### Firma
+
+```javascript
+useProducts() → { products: object[], isLoading: boolean, error: Error | null }
+```
+
+### Valor de retorno
+
+<ResponseField name="products" type="object[]">
+  Array de productos. Cada objeto incluye el `id` del documento de Firestore más todos sus campos (`nombre`, `contado`, `cuotas6`, `cuotas8`, `imagen`, `marca`, etc.).
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  `true` mientras se espera la primera respuesta de Firestore. Pasa a `false` en cuanto llega el primer snapshot (con o sin productos).
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  `null` en condiciones normales. Contiene el error si el listener de Firestore falla.
+</ResponseField>
+
+### Ejemplo de uso
+
+```jsx Catalogo.jsx
+import { useProducts } from '../hooks';
+
+function Catalogo() {
+  const { products, isLoading, error } = useProducts();
+
+  if (isLoading) return <p>Cargando productos...</p>;
+  if (error) return <p>Error al cargar productos.</p>;
+
+  return (
+    <ul>
+      {products.map((p) => (
+        <li key={p.id}>
+          {p.nombre} — ${p.contado?.toLocaleString('es-CO')}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+<Tip>
+  Si ya existe data en el store externo cuando un nuevo componente monta, `isLoading` se establece en `false` de inmediato y no se abre una segunda suscripción a Firestore.
+</Tip>
+
+---
+
+## useConfig
+
+Suscribe al componente al documento `configuracion/general` de Firestore en tiempo real. Comparte el mismo patrón singleton que `useProducts`.
+
+### Firma
+
+```javascript
+useConfig() → { config: object, isLoading: boolean, error: Error | null }
+```
+
+### Valor de retorno
+
+<ResponseField name="config" type="object">
+  Objeto con todos los campos del documento `configuracion/general`. Si el documento no existe en Firestore, devuelve `{}`.
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  `true` durante la carga inicial.
+</ResponseField>
+
+<ResponseField name="error" type="Error | null">
+  `null` en condiciones normales.
+</ResponseField>
+
+### Ejemplo de uso
+
+```jsx Header.jsx
+import { useConfig } from '../hooks';
+
+function Header() {
+  const { config, isLoading } = useConfig();
+
+  if (isLoading) return null;
+
+  return (
+    <header>
+      {config.logo && <img src={config.logo} alt={config.nombre ?? 'GIO TECH'} />}
+      <h1>{config.nombre ?? 'GIO TECH'}</h1>
+    </header>
+  );
+}
+```
+
+---
+
+## useAuth
+
+Combina `onAuthStateChanged` de Firebase Auth con un listener de Firestore sobre `usuarios/{uid}` para enriquecer el objeto de usuario con su rol y nombre completo. Gestiona la limpieza de ambas suscripciones automáticamente.
+
+### Firma
+
+```javascript
+useAuth() → { user: object | null, isLoading: boolean }
+```
+
+### Valor de retorno
+
+<ResponseField name="user" type="object | null">
+  `null` si no hay sesión activa. Cuando el usuario está autenticado, el objeto tiene la siguiente forma:
+
+  <Expandable title="Propiedades del objeto user">
+    <ResponseField name="uid" type="string">
+      UID de Firebase Auth.
+    </ResponseField>
+    <ResponseField name="email" type="string">
+      Correo electrónico del usuario.
+    </ResponseField>
+    <ResponseField name="rol" type="string">
+      Rol del usuario en la plataforma: `"admin"`, `"asesor"` o `"cliente"`. Mientras se carga desde Firestore muestra `"cargando..."`. Si el documento no existe, se asigna `"cliente"`.
+    </ResponseField>
+    <ResponseField name="nombreCompleto" type="string">
+      Nombre completo leído del documento `usuarios/{uid}`. Puede ser `undefined` si el campo no existe.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  `true` mientras Firebase Auth resuelve el estado inicial. Pasa a `false` tras obtener (o descartar) el usuario y sus datos de Firestore.
+</ResponseField>
+
+### Ejemplo de uso
+
+```jsx ProtectedRoute.jsx
+import { useAuth } from '../hooks';
+
+function ProtectedRoute({ children, rolesPermitidos }) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <p>Verificando sesión...</p>;
+  if (!user) return <Navigate to="/login" />;
+  if (!rolesPermitidos.includes(user.rol)) return <Navigate to="/" />;
+
+  return children;
+}
+```
+
+```jsx NavBar.jsx
+import { useAuth } from '../hooks';
+
+function NavBar() {
+  const { user } = useAuth();
+
+  return (
+    <nav>
+      {user ? (
+        <span>Bienvenido, {user.nombreCompleto} ({user.rol})</span>
+      ) : (
+        <a href="/login">Iniciar sesión</a>
+      )}
+    </nav>
+  );
+}
+```
+
+---
+
+## usePopularProducts
+
+Obtiene los IDs de los productos más vistos consultando la colección `producto_stats` ordenada por `vistas` descendente. Utiliza `getPopularProductsStats` del servicio de estadísticas.
+
+### Firma
+
+```javascript
+usePopularProducts() → { popularIds: string[], isLoading: boolean }
+```
+
+### Valor de retorno
+
+<ResponseField name="popularIds" type="string[]">
+  Array de IDs de productos (hasta 4) ordenados de mayor a menor número de vistas. Solo incluye productos con al menos 1 vista (`vistas > 0`).
+</ResponseField>
+
+<ResponseField name="isLoading" type="boolean">
+  `true` durante la consulta inicial a Firestore. Pasa a `false` independientemente de si la consulta tuvo éxito o falló.
+</ResponseField>
+
+### Cómo funciona el rastreo de popularidad
+
+1. Cuando un cliente abre la página de un producto, el componente llama a `recordProductView(productId)` del servicio `productStats.service.js`.
+2. Esa función incrementa atómicamente el campo `vistas` en `producto_stats/{productId}`.
+3. `usePopularProducts` lee y ordena esos contadores al montar el componente.
+
+```jsx ProductosDestacados.jsx
+import { usePopularProducts } from '../hooks/usePopularProducts';
+import { useProducts } from '../hooks';
+
+function ProductosDestacados() {
+  const { popularIds, isLoading: loadingIds } = usePopularProducts();
+  const { products, isLoading: loadingProducts } = useProducts();
+
+  if (loadingIds || loadingProducts) return <p>Cargando destacados...</p>;
+
+  const destacados = products.filter((p) => popularIds.includes(p.id));
+
+  return (
+    <section>
+      <h2>Más vistos</h2>
+      {destacados.map((p) => (
+        <article key={p.id}>
+          <img src={p.imagen} alt={p.nombre} />
+          <p>{p.nombre}</p>
+        </article>
+      ))}
+    </section>
+  );
+}
+```
+
+---
+
+## Importaciones
+
+Los hooks principales se exportan desde el barrel `src/hooks/index.js`:
+
+```javascript
+// Importación desde el barrel
+import { useProducts, useConfig, useAuth } from '../hooks';
+
+// usePopularProducts no está en el barrel — importar directamente
+import { usePopularProducts } from '../hooks/usePopularProducts';
+```
+
+<Note>
+  `usePopularProducts` no está incluido en el barrel `src/hooks/index.js`. Impórtalo directamente desde su archivo.
+</Note>

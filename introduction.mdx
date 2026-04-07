@@ -1,0 +1,73 @@
+---
+title: "Introducción a GIO TECH"
+description: "Plataforma integral para tienda de telefonía: catálogo de ventas, servicio técnico y gestión de inventario en tiempo real, construida con React y Firebase."
+keywords: ["gio tech", "telefonía", "puerto asís", "react", "firebase", "saas"]
+---
+
+**GIO TECH** es una aplicación web SaaS diseñada para la gestión completa de una tienda de telefonía en Puerto Asís, Putumayo, Colombia. Centraliza el catálogo de productos, el servicio técnico, la atención a clientes y el control interno de inventario en una sola plataforma, sin necesidad de un servidor backend propio.
+
+<Note>
+  GIO TECH es una aplicación puramente del lado del cliente (client-side). Toda la lógica de negocio —autenticación, almacenamiento de datos y archivos— corre directamente en el navegador, conectada a los servicios gestionados de Firebase. No se requiere ningún servidor propio.
+</Note>
+
+## Módulos principales
+
+<CardGroup cols={2}>
+  <Card title="Landing Page" icon="house" href="/features/catalogo">
+    Página de inicio con carrusel de héroe, productos destacados, reseñas de clientes y secciones de confianza. Muestra los servicios del negocio y facilita el contacto por WhatsApp.
+  </Card>
+  <Card title="Catálogo" icon="mobile-screen" href="/features/catalogo">
+    Listado completo de equipos con búsqueda en tiempo real, filtros por marca y precio, planes de financiación y cotización directa por WhatsApp.
+  </Card>
+  <Card title="Servicio técnico" icon="screwdriver-wrench" href="/features/servicio-tecnico">
+    Página editorial del servicio de reparación: diagnóstico, garantía escrita de 15 días y formulario de contacto directo con el taller.
+  </Card>
+  <Card title="Panel de administración" icon="gauge" href="/panels/admin-panel">
+    Panel exclusivo para el rol `admin`. Gestiona el inventario de productos, los asesores registrados, el carrusel y la configuración general del negocio.
+  </Card>
+  <Card title="Panel de asesor" icon="user-tie" href="/panels/asesor-panel">
+    Panel dedicado al rol `asesor`. Permite actualizar el número de WhatsApp personal y obtener un enlace único para recibir cotizaciones de clientes de forma directa.
+  </Card>
+  <Card title="Asistente de IA" icon="robot" href="/features/catalogo">
+    Asistente de recomendaciones de productos integrado en el catálogo, impulsado por Groq (LLaMA), responde preguntas de clientes en lenguaje natural y en español.
+  </Card>
+</CardGroup>
+
+## Stack tecnológico
+
+GIO TECH está construido sobre un stack moderno orientado al frontend:
+
+| Tecnología | Versión | Uso |
+|---|---|---|
+| React | 19 | Interfaz de usuario y componentes |
+| Vite | 6 | Bundler y servidor de desarrollo |
+| React Router | 6 | Enrutamiento del lado del cliente |
+| Firebase Auth | 11 | Autenticación de usuarios |
+| Firestore | 11 | Base de datos en tiempo real |
+| Firebase Storage | 11 | Almacenamiento de imágenes |
+| Bootstrap | 5 | Sistema de diseño y utilidades CSS |
+| Framer Motion | 12 | Animaciones declarativas |
+| Swiper | 12 | Carrusel de héroe |
+| Gemini AI | — | Asistente inteligente en paneles |
+
+## Sistema de roles
+
+GIO TECH implementa tres roles de usuario, definidos en el documento del usuario en la colección `usuarios` de Firestore:
+
+| Rol | Acceso | Descripción |
+|---|---|---|
+| `admin` | `/panel` → `AdminPanel` | Acceso completo. Gestiona inventario, asesores, carrusel y configuración del negocio. |
+| `asesor` | `/panel` → `AsesorPanel` | Acceso restringido. Consulta catálogo, registra ventas y atiende clientes. |
+| `cliente` | `/`, `/catalogo`, `/servicio-tecnico` | Acceso público. Navega el catálogo y solicita servicio técnico o cotizaciones por WhatsApp. |
+
+Cuando un usuario se autentica, la app consulta su documento en Firestore para determinar el rol y redirige al panel correspondiente. Si el documento no existe, se asigna automáticamente el rol `cliente`.
+
+## Rutas de la aplicación
+
+```text
+/                  → Landing Page (pública)
+/catalogo          → Catálogo de productos (pública)
+/servicio-tecnico  → Página de servicio técnico (pública)
+/login             → Autenticación de usuarios
+/panel             → Admin Panel o Asesor Panel según el rol
+```

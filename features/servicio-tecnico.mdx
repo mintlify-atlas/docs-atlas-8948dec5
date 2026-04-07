@@ -1,0 +1,81 @@
+---
+title: "Servicio técnico especializado"
+description: "Diagnóstico profesional, reparaciones con repuestos de calidad y garantía escrita de 15 días para cualquier equipo."
+keywords: ["servicio técnico", "reparación", "diagnóstico", "garantía", "celulares", "Puerto Asís"]
+---
+
+La página `/servicio-tecnico` describe la oferta de reparación de GIO TECH. Es una página editorial sin lógica de negocio: comunica el proceso, las especialidades y la garantía, y conecta directamente con un asesor por WhatsApp para agendar el diagnóstico.
+
+## Qué reparamos
+
+<Columns cols={4}>
+  <Card title="Pantallas rotas" icon="smartphone">
+    Reemplazo de pantallas originales y de alta calidad para las marcas más populares.
+  </Card>
+  <Card title="Baterías agotadas" icon="battery-low">
+    Sustitución de baterías que ya no retienen carga o se inflaron.
+  </Card>
+  <Card title="Puertos de carga" icon="plug">
+    Reparación o reemplazo de puertos USB-C, micro-USB y Lightning dañados.
+  </Card>
+  <Card title="Cámaras dañadas" icon="camera">
+    Reparación de módulos de cámara trasera o frontal con imagen borrosa o sin señal.
+  </Card>
+  <Card title="Daños por agua" icon="droplets">
+    Limpieza ultrasónica y tratamiento de corrosión por exposición a líquidos.
+  </Card>
+  <Card title="Micrófonos / audio" icon="mic">
+    Restauración de micrófonos, altavoces y auriculares integrados.
+  </Card>
+  <Card title="Antena / señal" icon="wifi-off">
+    Diagnóstico y reparación de problemas de cobertura celular y Wi-Fi.
+  </Card>
+  <Card title="Software y sistema" icon="code">
+    Actualizaciones, restauraciones de fábrica y solución de errores de sistema operativo.
+  </Card>
+</Columns>
+
+## Proceso de trabajo
+
+Cada reparación sigue cuatro pasos claros:
+
+<Steps>
+  <Step title="Trae tu equipo">
+    Visita la sede en **Calle 32 #13-36, B-Camilo Torres, Puerto Asís, Putumayo** o coordina el envío seguro desde cualquier municipio del departamento.
+  </Step>
+  <Step title="Diagnóstico reembolsable (30 min)">
+    Un técnico evalúa el equipo en aproximadamente 30 minutos y entrega un presupuesto detallado.
+
+    <Tip>
+      El costo del diagnóstico se descuenta del total de la reparación. Si decides reparar con GIO TECH, el diagnóstico no tiene costo adicional.
+    </Tip>
+  </Step>
+  <Step title="Aprobás y reparamos">
+    Si aceptás el presupuesto, el técnico comienza de inmediato con repuestos de excelente calidad. No hay tiempos de espera innecesarios.
+  </Step>
+  <Step title="Listo con garantía">
+    Recibes el equipo funcionando al 100% acompañado de una **garantía escrita de 15 días**. Si el mismo problema persiste dentro del plazo, se resuelve sin costo adicional.
+  </Step>
+</Steps>
+
+## Garantía
+
+<Card title="Garantía real de 15 días" icon="shield-check" color="#28a745">
+  Cada reparación incluye garantía escrita. Si el mismo problema reaparece dentro de los 15 días calendario, GIO TECH lo resuelve sin cargo adicional. Los repuestos utilizados son de alta calidad y rendimiento garantizado, ideales como alternativa inmediata o económica frente al componente original.
+</Card>
+
+<Note>
+  La garantía cubre el defecto específicamente reparado. Daños posteriores por caída, agua u otras causas externas no están incluidos.
+</Note>
+
+## Agendar por WhatsApp
+
+El botón **Agendar diagnóstico** en la página de servicio técnico abre WhatsApp con el siguiente mensaje prellenado dirigido al asesor asignado:
+
+```text mensaje prellenado
+Hola GIO TECH, necesito servicio técnico para mi equipo. ¿Cuál es el proceso?
+```
+
+El número de WhatsApp al que se envía el mensaje se resuelve dinámicamente desde `WhatsappNumberContext`. Si la URL incluye el parámetro `?asesor=<uid>`, el mensaje va al número personal del asesor; en caso contrario, va al número general de la tienda (`573223652569`).
+
+Consulta [Carrito y WhatsApp](/features/carrito-y-whatsapp) para entender cómo funciona la asignación dinámica de asesores.

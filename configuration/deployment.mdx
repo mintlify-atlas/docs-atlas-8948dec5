@@ -1,0 +1,100 @@
+---
+title: "Despliegue en Firebase Hosting"
+description: "Cómo compilar y publicar GIO TECH en Firebase Hosting con un solo comando."
+---
+
+GIO TECH se despliega en **Firebase Hosting**, que sirve la aplicación React como archivos estáticos. El proyecto ya incluye los archivos de configuración necesarios (`firebase.json` y `.firebaserc`), por lo que no tienes que inicializar Firebase desde cero.
+
+## Proceso de despliegue
+
+<Steps>
+  <Step title="Instalar Firebase CLI">
+    Si no tienes la CLI de Firebase instalada, ejecútala globalmente con npm:
+
+    ```bash
+    npm install -g firebase-tools
+    ```
+  </Step>
+
+  <Step title="Iniciar sesión en Firebase">
+    Autentícate con tu cuenta de Google. Este paso abre el navegador para completar el inicio de sesión:
+
+    ```bash
+    firebase login
+    ```
+  </Step>
+
+  <Step title="Verificar la configuración del proyecto">
+    El proyecto ya está vinculado al ID `gio-tech` mediante el archivo `.firebaserc`. No necesitas ejecutar `firebase init`.
+
+    ```json .firebaserc
+    {
+      "projects": {
+        "default": "gio-tech"
+      }
+    }
+    ```
+
+    El archivo `firebase.json` configura el hosting para servir la carpeta `dist` generada por Vite, e incluye una regla de reescritura para que React Router funcione correctamente en rutas del lado del cliente:
+
+    ```json firebase.json
+    {
+      "hosting": {
+        "public": "dist",
+        "ignore": [
+          "firebase.json",
+          "**/.*",
+          "**/node_modules/**"
+        ],
+        "rewrites": [
+          {
+            "source": "**",
+            "destination": "/index.html"
+          }
+        ]
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Desplegar la aplicación">
+    Ejecuta el script `deploy` definido en `package.json`. Este comando compila la aplicación con Vite y luego publica el resultado en Firebase Hosting junto con las reglas de Firestore:
+
+    ```bash
+    npm run deploy
+    ```
+
+    Internamente, este script ejecuta:
+
+    ```bash
+    vite build && firebase deploy
+    ```
+
+    Al finalizar, Firebase mostrará la URL pública de tu aplicación.
+
+    <Tip>
+      Antes de desplegar a producción, puedes previsualizar el build localmente con:
+
+      ```bash
+      npm run preview
+      ```
+
+      Esto levanta un servidor en `http://localhost:4173` que sirve exactamente los mismos archivos que se publicarán.
+    </Tip>
+  </Step>
+</Steps>
+
+## Qué incluye el despliegue
+
+El comando `firebase deploy` publica dos cosas:
+
+- **Hosting**: los archivos estáticos de la carpeta `dist` (HTML, CSS, JS, imágenes).
+- **Reglas de Firestore**: si existe un archivo `firestore.rules` en el proyecto, Firebase lo despliega automáticamente junto con el hosting.
+
+<Info>
+  Si solo quieres publicar el hosting sin actualizar las reglas, puedes ejecutar:
+
+  ```bash
+  firebase deploy --only hosting
+  ```
+</Info>

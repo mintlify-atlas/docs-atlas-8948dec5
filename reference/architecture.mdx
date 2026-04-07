@@ -1,0 +1,149 @@
+---
+title: "Arquitectura del proyecto"
+description: "Visión general de la arquitectura de GIO TECH: SPA en React, Firebase como backend y estructura de carpetas."
+keywords: ["arquitectura", "react", "firebase", "spa", "rutas", "roles", "contextos"]
+---
+
+GIO TECH es una **Single Page Application (SPA)** construida en React sin backend propio. Toda la persistencia de datos, autenticación y reglas de seguridad se delegan a **Firebase** (Firestore + Authentication). No existe servidor de aplicación intermedio: el cliente se comunica directamente con los servicios de Firebase.
+
+<Info>
+  La aplicación se despliega como archivos estáticos. No hay servidor Node.js, API REST propia ni base de datos relacional. Firebase actúa como Backend as a Service (BaaS).
+</Info>
+
+## Estructura de directorios
+
+<Columns cols={2}>
+  <Card title="src/components/" icon="puzzle-piece">
+    Componentes de interfaz de usuario. Incluye `AdminPanel`, `AsesorPanel`, `Catalogo`, `LandingPage`, `ServicioTecnicoPage`, `Header`, `Footer`, `ProductCard`, `CartFloatingButton`, `WhatsappFloatingButton`, `SnowfallEffect`, entre otros.
+  </Card>
+  <Card title="src/contexts/" icon="share-nodes">
+    Contextos globales de React. Contiene `CartContext.jsx` (carrito de compras con persistencia en `localStorage`) y `WhatsappNumberContext.jsx` (número de WhatsApp del asesor activo).
+  </Card>
+  <Card title="src/hooks/" icon="hook">
+    Hooks personalizados que encapsulan lógica reutilizable: `useProducts`, `useConfig`, `useAuth`, `usePopularProducts`.
+  </Card>
+  <Card title="src/services/" icon="database">
+    Capa de acceso a Firebase y APIs externas. Abstrae las llamadas a Firestore en funciones reutilizables: `product.service.js`, `config.service.js`, `gemini.service.js`, `productStats.service.js`.
+  </Card>
+  <Card title="src/utils/" icon="wrench">
+    Funciones utilitarias puras, principalmente formateadores de moneda y texto para el mercado colombiano.
+  </Card>
+  <Card title="src/data/" icon="file-lines">
+    Archivos de datos estáticos que no requieren Firestore (por ejemplo, listas de referencias o constantes del dominio).
+  </Card>
+</Columns>
+
+<Columns cols={2}>
+  <Card title="src/styles/" icon="paintbrush">
+    CSS global de la aplicación. Complementa Bootstrap con los estilos propios de GIO TECH y las variables CSS del sistema de temas.
+  </Card>
+  <Card title="src/firebase.js" icon="fire">
+    Inicialización única de Firebase. Exporta las instancias `auth` (Firebase Authentication) y `db` (Firestore) que se usan en toda la aplicación.
+  </Card>
+</Columns>
+
+## Inicialización de Firebase
+
+Firebase se configura en `src/firebase.js` a partir de variables de entorno con prefijo `VITE_`:
+
+```javascript
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
+
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+```
+
+<Warning>
+  Nunca incluyas los valores reales de estas variables en el repositorio. Usa un archivo `.env.local` que esté en `.gitignore`.
+</Warning>
+
+## Árbol de proveedores de contexto
+
+Los contextos se anidan en `src/App.jsx` en el siguiente orden, de externo a interno:
+
+```
+WhatsappNumberProvider         ← lee el UID del asesor desde la URL / localStorage
+  └─ CartProvider              ← carrito persistido en localStorage
+       └─ App (rutas, header, footer, botones flotantes)
+```
+
+`WhatsappNumberProvider` debe estar más arriba en el árbol porque `CartProvider` y otros componentes pueden necesitar el número de WhatsApp al construir los mensajes de cotización.
+
+## Rutas (React Router v6)
+
+La aplicación usa `BrowserRouter` (declarado en `main.jsx`) con las siguientes rutas definidas en `App.jsx`:
+
+| Ruta | Componente | Acceso |
+|---|---|---|
+| `/` | `LandingPage` | Público |
+| `/catalogo` | `Catalogo` | Público |
+| `/servicio-tecnico` | `ServicioTecnicoPage` | Público |
+| `/login` | `Login` | Público |
+| `/panel` | `AdminPanel` o `AsesorPanel` | Solo roles `admin` / `asesor` |
+
+### Control de acceso basado en roles
+
+La ruta `/panel` aplica la siguiente lógica de renderizado:
+
+```
+¿Está cargando la sesión?
+  → Mostrar "Verificando sesión..."
+
+¿Hay usuario autenticado?
+  ¿rol === "admin"?   → renderiza <AdminPanel />
+  ¿rol === "asesor"?  → renderiza <AsesorPanel />
+  Otro rol            → <Navigate to="/" replace />
+
+¿No hay usuario?      → <Navigate to="/login" replace />
+```
+
+Los usuarios no autenticados pueden navegar libremente por `/`, `/catalogo` y `/servicio-tecnico`. El `Header` y el `Footer` se ocultan únicamente en `/login` y en las rutas `/panel/*` para dar una experiencia limpia en esas vistas.
+
+## Carga diferida (lazy loading)
+
+Los componentes más pesados se cargan bajo demanda con `React.lazy` y `Suspense`, reduciendo el bundle inicial:
+
+```javascript
+const Login            = lazy(() => import("./components/Login"));
+const AdminPanel       = lazy(() => import("./components/AdminPanel"));
+const AsesorPanel      = lazy(() => import("./components/AsesorPanel"));
+const LandingPage      = lazy(() => import("./components/LandingPage"));
+const ServicioTecnicoPage = lazy(() => import("./components/ServicioTecnicoPage"));
+```
+
+Mientras el chunk se descarga se muestra un `<p className="lead">Cargando…</p>` como fallback. `Catalogo` se importa de forma estática porque es la vista de mayor frecuencia de uso y justifica estar en el bundle principal.
+
+## Capa de servicios
+
+Los servicios en `src/services/` actúan como la única interfaz entre los componentes y Firestore. Los componentes no importan funciones de `firebase/firestore` directamente; usan estas abstracciones:
+
+| Servicio | Funciones principales |
+|---|---|
+| `product.service.js` | `subscribeToProducts`, `createProduct`, `updateProduct`, `deleteProduct`, `searchProducts` |
+| `config.service.js` | `subscribeToConfig`, `updateConfig` |
+| `gemini.service.js` | `askGeminiAssistant`, `generateWhatsAppMessage` — asistente de ventas con IA (Groq / LLaMA) |
+| `productStats.service.js` | `recordProductView`, `getPopularProductsStats` — seguimiento de popularidad por vistas |
+
+Las funciones `subscribe*` devuelven un `unsubscribe` que debe llamarse al desmontar el componente para evitar fugas de memoria.
+
+## Número de WhatsApp del asesor
+
+`WhatsappNumberContext` implementa un sistema de referidos basado en parámetros de URL:
+
+1. Si la URL contiene `?asesor=<uid>`, se guarda en `localStorage` y se consulta `usuarios/<uid>` en Firestore para obtener el `whatsappNumber` del asesor.
+2. En rutas distintas a `/`, si no hay parámetro en la URL, se recupera el UID de `localStorage`.
+3. En la ruta raíz `/` sin parámetro, se limpia `localStorage` y se usa el número general de la tienda.
+
+Cualquier componente puede leer el número activo con el hook `useWhatsappNumber()`.

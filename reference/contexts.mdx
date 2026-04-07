@@ -1,0 +1,291 @@
+---
+title: "Contextos de React"
+description: "Proveedores de contexto que comparten estado global entre componentes sin necesidad de prop drilling: carrito de cotización y número de WhatsApp del asesor."
+---
+
+GIO TECH usa dos contextos de React para estado verdaderamente global: el carrito de cotización (persistido en `localStorage`) y el número de WhatsApp activo (calculado dinámicamente según el asesor de la URL).
+
+<Columns cols={2}>
+  <Card title="CartContext" icon="cart-shopping">
+    Estado del carrito de cotización con persistencia en `localStorage`.
+  </Card>
+  <Card title="WhatsappNumberContext" icon="whatsapp">
+    Número de WhatsApp del asesor activo, leído desde Firestore.
+  </Card>
+</Columns>
+
+---
+
+## CartContext
+
+El `CartContext` expone el estado del carrito de cotización y las acciones para manipularlo. El carrito se persiste automáticamente en `localStorage` bajo la clave `gio-tech-cart`, por lo que sobrevive recargas de página.
+
+<Note>
+  El carrito de GIO TECH no es un carrito de compras tradicional. Los clientes añaden productos para generar una **cotización** que se envía por WhatsApp, no para procesar un pago.
+</Note>
+
+### Configuración del proveedor
+
+`CartProvider` envuelve la aplicación dentro de `App.jsx`. Debe estar anidado dentro de `WhatsappNumberProvider` para que el contexto del número de WhatsApp esté disponible en los mensajes de cotización del carrito:
+
+```jsx App.jsx
+import { CartProvider } from './contexts/CartContext';
+import { WhatsappNumberProvider } from './contexts/WhatsappNumberContext';
+
+// Árbol de proveedores en App.jsx
+<WhatsappNumberProvider>
+  <CartProvider>
+    {/* Rutas, header, footer, botones flotantes */}
+  </CartProvider>
+</WhatsappNumberProvider>
+```
+
+### Consumo con `useCart`
+
+```jsx
+import { useCart } from '../contexts/CartContext';
+
+function MiComponente() {
+  const { cartItems, cartCount, addToCart, removeFromCart, clearCart } = useCart();
+  // ...
+}
+```
+
+### API expuesta por `useCart()`
+
+<ResponseField name="cartItems" type="object[]">
+  Array de ítems actualmente en el carrito. Cada ítem tiene la siguiente estructura:
+
+  <Expandable title="Estructura de un ítem del carrito">
+    <ResponseField name="itemId" type="string" required>
+      ID único del ítem en el carrito, compuesto como `"{productId}-{type}"` (p. ej. `"abc123-contado"`). Permite distinguir el mismo producto con distintos tipos de cotización.
+    </ResponseField>
+    <ResponseField name="productId" type="string" required>
+      ID del documento de Firestore en la colección `productos`.
+    </ResponseField>
+    <ResponseField name="nombre" type="string" required>
+      Nombre del producto.
+    </ResponseField>
+    <ResponseField name="imagen" type="string">
+      URL de la imagen del producto.
+    </ResponseField>
+    <ResponseField name="contado" type="number">
+      Precio al contado en COP.
+    </ResponseField>
+    <ResponseField name="cuotas6" type="number">
+      Valor de cada cuota en el plan de 16 quincenas (campo `cuotas6` de Firestore).
+    </ResponseField>
+    <ResponseField name="cuotas8" type="number">
+      Valor de cada cuota en el plan de 8 cuotas mensuales (campo `cuotas8` de Firestore).
+    </ResponseField>
+    <ResponseField name="cotizacionType" type="string" required>
+      Tipo de cotización seleccionada por el cliente: `"contado"` o `"credito"`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="cartCount" type="number">
+  Número total de ítems en el carrito (`cartItems.length`). Útil para mostrar la insignia del icono del carrito.
+</ResponseField>
+
+<ResponseField name="addToCart" type="function">
+  `addToCart(product, type)` — Añade un producto al carrito con el tipo de cotización indicado. Si ya existe un ítem con el mismo `itemId` (`productId + type`), la operación es ignorada (sin duplicados).
+
+  <Expandable title="Parámetros">
+    <ResponseField name="product" type="object" required>
+      Objeto producto con al menos `id`, `nombre`, `imagen`, `contado`, `cuotas6` y `cuotas8`.
+    </ResponseField>
+    <ResponseField name="type" type="string" required>
+      `"contado"` o `"credito"`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="removeFromCart" type="function">
+  `removeFromCart(itemId)` — Elimina el ítem cuyo `itemId` coincida. No lanza error si el ítem no existe.
+</ResponseField>
+
+<ResponseField name="clearCart" type="function">
+  `clearCart()` — Vacía el carrito por completo.
+</ResponseField>
+
+### Ejemplos de uso
+
+<CodeGroup>
+
+```jsx Botón añadir al carrito
+import { useCart } from '../contexts/CartContext';
+
+function BtnAgregarCotizacion({ producto }) {
+  const { addToCart } = useCart();
+
+  return (
+    <div>
+      <button onClick={() => addToCart(producto, 'contado')}>
+        Cotizar al contado
+      </button>
+      <button onClick={() => addToCart(producto, 'credito')}>
+        Cotizar a crédito
+      </button>
+    </div>
+  );
+}
+```
+
+```jsx Icono del carrito con contador
+import { useCart } from '../contexts/CartContext';
+
+function CartIcon() {
+  const { cartCount } = useCart();
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <span>🛒</span>
+      {cartCount > 0 && (
+        <span className="badge">{cartCount}</span>
+      )}
+    </div>
+  );
+}
+```
+
+```jsx Panel del carrito
+import { useCart } from '../contexts/CartContext';
+
+function CartPanel() {
+  const { cartItems, removeFromCart, clearCart } = useCart();
+
+  return (
+    <aside>
+      {cartItems.map((item) => (
+        <div key={item.itemId}>
+          <img src={item.imagen} alt={item.nombre} />
+          <p>{item.nombre}</p>
+          <p>
+            {item.cotizacionType === 'contado'
+              ? `Contado: $${item.contado?.toLocaleString('es-CO')}`
+              : `Crédito: $${item.cuotas6?.toLocaleString('es-CO')}/mes`}
+          </p>
+          <button onClick={() => removeFromCart(item.itemId)}>Quitar</button>
+        </div>
+      ))}
+      {cartItems.length > 0 && (
+        <button onClick={clearCart}>Vaciar carrito</button>
+      )}
+    </aside>
+  );
+}
+```
+
+</CodeGroup>
+
+---
+
+## WhatsappNumberContext
+
+El `WhatsappNumberContext` provee el número de WhatsApp correcto para los botones de contacto, resolviendo dinámicamente si el cliente llegó al catálogo a través del enlace personalizado de un asesor.
+
+### Cómo funciona
+
+<Steps>
+  <Step title="Detectar el parámetro asesor en la URL">
+    Al montar, el proveedor lee `?asesor=uid` de `window.location.search`. Si encuentra el parámetro, lo guarda también en `localStorage` para que persista durante la navegación.
+  </Step>
+  <Step title="Consultar Firestore">
+    Con el UID del asesor, abre un listener sobre `usuarios/{uid}` en Firestore y lee el campo `whatsappNumber`.
+  </Step>
+  <Step title="Exponer el número resuelto">
+    Comparte el número del asesor (o el número general de la tienda como fallback) a todos los componentes consumidores.
+  </Step>
+</Steps>
+
+### Lógica de fallback
+
+| Situación | Número expuesto |
+|---|---|
+| URL tiene `?asesor=uid` y el asesor tiene `whatsappNumber` en Firestore | Número del asesor |
+| URL tiene `?asesor=uid` pero el documento no existe o no tiene número | `573223652569` (número general) |
+| URL sin `?asesor` y `localStorage` tiene un `currentAsesorId` (y la ruta no es `/`) | Número del asesor guardado |
+| URL sin `?asesor` en la ruta raíz `/` | `573223652569` (número general) |
+| Error de Firestore | `573223652569` (número general) |
+
+### Configuración del proveedor
+
+`WhatsappNumberProvider` es el proveedor más externo del árbol de la aplicación, declarado en `App.jsx`. `CartProvider` se anida dentro de él:
+
+```jsx App.jsx
+import { WhatsappNumberProvider } from './contexts/WhatsappNumberContext';
+import { CartProvider } from './contexts/CartContext';
+
+function App() {
+  return (
+    <WhatsappNumberProvider>
+      <CartProvider>
+        {/* Header, rutas, footer, botones flotantes */}
+      </CartProvider>
+    </WhatsappNumberProvider>
+  );
+}
+```
+
+### Consumo con `useWhatsappNumber`
+
+El hook devuelve directamente el número como `string` (no un objeto).
+
+```jsx
+import { useWhatsappNumber } from '../contexts/WhatsappNumberContext';
+
+function BtnWhatsapp({ mensaje }) {
+  const whatsappNumber = useWhatsappNumber();
+
+  const url = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(mensaje)}`;
+
+  return (
+    <a href={url} target="_blank" rel="noreferrer">
+      Consultar por WhatsApp
+    </a>
+  );
+}
+```
+
+### Valor de retorno de `useWhatsappNumber()`
+
+<ResponseField name="whatsappNumber" type="string">
+  Número de WhatsApp en formato internacional sin `+` (p. ej. `"573223652569"`). Listo para usar directamente en URLs de `wa.me`.
+</ResponseField>
+
+### Ejemplo completo con carrito
+
+```jsx EnviarCotizacion.jsx
+import { useCart } from '../contexts/CartContext';
+import { useWhatsappNumber } from '../contexts/WhatsappNumberContext';
+
+function EnviarCotizacion() {
+  const { cartItems, clearCart } = useCart();
+  const whatsappNumber = useWhatsappNumber();
+
+  const generarMensaje = () => {
+    let texto = 'Hola, quisiera cotizar los siguientes productos:\n\n';
+    cartItems.forEach((item, i) => {
+      const precio =
+        item.cotizacionType === 'contado'
+          ? `Contado: $${item.contado?.toLocaleString('es-CO')}`
+          : `Crédito: $${item.cuotas6?.toLocaleString('es-CO')}/mes (6 cuotas)`;
+      texto += `${i + 1}. ${item.nombre} — ${precio}\n`;
+    });
+    return encodeURIComponent(texto);
+  };
+
+  const enviar = () => {
+    const url = `https://wa.me/${whatsappNumber}?text=${generarMensaje()}`;
+    window.open(url, '_blank');
+    clearCart();
+  };
+
+  return (
+    <button onClick={enviar} disabled={cartItems.length === 0}>
+      Enviar cotización por WhatsApp
+    </button>
+  );
+}
+```

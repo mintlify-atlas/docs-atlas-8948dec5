@@ -1,0 +1,219 @@
+---
+title: "Panel de administración"
+description: "Referencia completa del Panel de Administración de GIO TECH: gestión de productos, configuración del negocio, asesores y carrusel hero."
+keywords: ["admin", "panel", "productos", "configuración", "asesores", "carrusel"]
+---
+
+<Warning>
+  El acceso al Panel de Administración requiere una cuenta con rol **admin**. Si intentas acceder sin ese rol, serás redirigido al inicio. Solicita las credenciales al propietario del sistema.
+</Warning>
+
+## Acceso
+
+<Steps>
+  <Step title="Ir a la página de inicio de sesión">
+    Navega a `/login` e ingresa tu correo electrónico y contraseña de administrador.
+  </Step>
+  <Step title="Autenticarse">
+    Haz clic en **Ingresar**. El sistema verifica tu rol en Firestore (`colección: usuarios`). Si tu documento tiene `rol: "admin"`, serás redirigido automáticamente a `/panel`.
+  </Step>
+  <Step title="Acceder al panel">
+    En `/panel` verás el Panel de Administración con cuatro pestañas: **Gestionar Productos**, **Configuración del Negocio**, **Gestionar Asesores** y **Carrusel Hero**.
+  </Step>
+</Steps>
+
+---
+
+## Pestañas del panel
+
+<Tabs>
+  <Tab title="Gestionar Productos">
+
+    Esta pestaña permite agregar, editar y eliminar los productos del catálogo. Los datos se persisten en la colección `productos` de Firestore en tiempo real.
+
+    ### Formulario de producto
+
+    <AccordionGroup>
+      <Accordion title="Campos básicos">
+        | Campo | Tipo | Requerido | Descripción |
+        |-------|------|-----------|-------------|
+        | **Nombre** | Texto | Sí | Nombre del producto visible en el catálogo. |
+        | **Descripción** | Área de texto | No | Descripción detallada. El sistema extrae automáticamente especificaciones técnicas (RAM, almacenamiento, cámara, pantalla, batería) a partir del texto libre. |
+        | **Precio Contado** | Número | Sí | Precio de venta al contado en pesos colombianos. |
+        | **16 Cuotas Quincenales** | Número | No | Valor de cada cuota en un plan de 16 quincenas. Se deshabilita cuando el modo **Financiación 12 Meses** está activo. |
+        | **8 Cuotas Mensuales** | Número | No | Valor de cada cuota en un plan de 8 meses. Se completa automáticamente como el doble del valor de las 16 quincenas, pero es editable. Se deshabilita con el modo de 12 meses activo. |
+        | **Cuota Inicial** | Número | No | Monto inicial requerido para acceder al crédito. Valor por defecto: `0`. |
+        | **URL Imagen** | Texto (URL) | No | Enlace directo a la imagen del producto (ej. desde Firebase Storage, Imgur u otro CDN). |
+      </Accordion>
+
+      <Accordion title="Sección Promoción">
+        La sección de promoción controla la visualización de precios especiales y etiquetas en las tarjetas del catálogo.
+
+        | Campo | Tipo | Descripción |
+        |-------|------|-------------|
+        | **Activo / Inactivo** (toggle) | Switch | Activa o desactiva la promoción. Cuando está inactiva, todos los campos de promo se ignoran. |
+        | **Precio promo** | Número | Precio especial que reemplaza al precio de contado mientras la promo esté activa. |
+        | **Texto del badge** | Texto | Etiqueta visible en la tarjeta (ej. `PROMO`, `OFERTA`). Valor por defecto: `PROMO`. |
+        | **Color badge** | Color picker | Color de fondo del badge de promoción. Valor por defecto: `#d81b60`. |
+        | **Highlight tarjeta** | Texto | Color de resaltado del borde/fondo de la tarjeta en formato `rgba(...)` o `#hex`. Opcional. |
+
+        **Tipo de etiqueta** (`badgeMode`): controla qué badges se muestran en el catálogo.
+
+        | Opción | Valor | Comportamiento |
+        |--------|-------|----------------|
+        | Ninguna | `none` | No se muestra ningún badge. |
+        | Sólo Promo | `promo` | Muestra únicamente el badge de promoción. |
+        | Sólo Nuevo | `nuevo` | Muestra únicamente el badge de producto nuevo. |
+        | Promo + Nuevo | `ambos` | Muestra ambos badges simultáneamente. |
+      </Accordion>
+
+      <Accordion title="Sección Producto Nuevo">
+        Permite marcar un producto como nuevo con su propio badge independiente.
+
+        | Campo | Tipo | Descripción |
+        |-------|------|-------------|
+        | **Activo / Inactivo** (toggle) | Switch | Activa o desactiva el badge de "Nuevo". |
+        | **Texto badge nuevo** | Texto | Etiqueta del badge (ej. `NUEVO`, `ESTRENO`). Valor por defecto: `NUEVO`. |
+        | **Color badge nuevo** | Color picker | Color de fondo del badge. Valor por defecto: `#28a745`. |
+
+        <Note>
+          Si dejas el color del badge vacío, el sistema usará las variables CSS del **tema de temporada** activo (si lo hay).
+        </Note>
+      </Accordion>
+
+      <Accordion title="Financiación exclusiva 12 meses">
+        Activa un plan de crédito alternativo que reemplaza los planes de 16 quincenas y 8 meses.
+
+        | Campo | Tipo | Descripción |
+        |-------|------|-------------|
+        | **Activo / Inactivo** (toggle) | Switch | Al activarse, deshabilita los campos de 16 quincenas y 8 meses (sus valores se conservan pero no se muestran en catálogo). |
+        | **Cuota mensual (12 meses)** | Número | Valor de cada cuota en el plan de 12 meses (ej. `150000`). |
+
+        <Warning>
+          Cuando este modo está activo, el producto muestra **únicamente** el plan de 12 cuotas mensuales en el catálogo. Los campos de 16 quincenas y 8 meses se deshabilitan en el formulario.
+        </Warning>
+      </Accordion>
+    </AccordionGroup>
+
+    ### Tabla de productos
+
+    Debajo del formulario se lista el inventario actual con las columnas: imagen miniatura, nombre, precio contado (con tachado si tiene promo activa), precio crédito (mostrando el plan aplicable) y etiquetas activas.
+
+    Puedes **buscar** productos por nombre o descripción usando el campo de búsqueda en tiempo real. El botón **Limpiar** resetea el filtro.
+
+    Desde la tabla puedes:
+    - **Editar** un producto: carga sus datos en el formulario superior.
+    - **Eliminar** un producto: solicita confirmación antes de borrar permanentemente de Firestore.
+
+  </Tab>
+
+  <Tab title="Configuración del Negocio">
+
+    Esta pestaña controla la identidad visual de la tienda y el tema de temporada. Los cambios se guardan en el documento `configuracion/general` de Firestore mediante `setDoc` con `merge: true`.
+
+    ### Información del negocio
+
+    | Campo | Tipo | Descripción |
+    |-------|------|-------------|
+    | **Nombre del Negocio** | Texto | Nombre que aparece en la interfaz de la tienda. |
+    | **Logo del Negocio (URL)** | Texto (URL) | Enlace directo al logo. Puede provenir de Firebase Storage, Imgur u otro servidor de imágenes. Se muestra una vista previa al ingresar la URL. |
+
+    ### Tema de temporada
+
+    El tema de temporada permite cambiar los colores de los badges y resaltados de promoción en todo el catálogo sin modificar código fuente.
+
+    | Campo | Tipo | Descripción |
+    |-------|------|-------------|
+    | **Activo / Inactivo** (toggle) | Switch | Habilita o deshabilita el tema. |
+    | **Inicio** | Fecha y hora | Momento en que el tema comienza a aplicarse (opcional). |
+    | **Fin** | Fecha y hora | Momento en que el tema deja de aplicarse (opcional). |
+    | **Color badge promo** (`--promo-badge-bg`) | Color picker | Color de fondo de los badges de promo en toda la tienda. |
+    | **Texto badge promo** (`--promo-badge-text`) | Color picker | Color del texto dentro del badge de promo. |
+    | **Resaltado tarjetas** (`--promo-highlight`) | Texto | Valor CSS (formato `rgba(...)`) para el resaltado de tarjetas con promo activa. |
+
+    ### Presets de temporada
+
+    Usa los botones de acceso rápido para aplicar una paleta de colores predefinida:
+
+    | Preset | Variable `--promo-badge-bg` | Variable `--promo-badge-text` | Variable `--promo-highlight` |
+    |--------|-----------------------------|-------------------------------|------------------------------|
+    | Amor y Amistad | `#d81b60` | `#ffffff` | `rgba(216,27,96,.18)` |
+    | Navidad | `#2e7d32` | `#ffffff` | `rgba(46,125,50,.18)` |
+    | Halloween | `#ff6d00` | `#1b1b1b` | `rgba(255,109,0,.18)` |
+
+    <Note>
+      Los presets solo modifican los valores en el formulario. Debes hacer clic en **Actualizar Configuración** para guardar los cambios en Firestore.
+    </Note>
+
+  </Tab>
+
+  <Tab title="Gestionar Asesores">
+
+    Esta pestaña permite registrar nuevos asesores comerciales, editar su información y eliminarlos del sistema.
+
+    ### Registrar nuevo asesor
+
+    El registro crea simultáneamente una cuenta en Firebase Authentication y un documento en la colección `usuarios` de Firestore con `rol: "asesor"`.
+
+    | Campo | Requerido | Descripción |
+    |-------|-----------|-------------|
+    | **Nombre Completo** | Sí | Nombre visible en el panel del asesor y en la tabla de asesores. |
+    | **Email** | Sí | Correo electrónico usado para iniciar sesión. **Inmutable** después del registro. |
+    | **Contraseña** | Sí | Contraseña inicial de acceso. Solo se solicita durante el registro. |
+    | **Número de WhatsApp** | Sí | Número en formato internacional (ej. `573XXXXXXXXX`). Se usa para los enlaces de cotización personalizados del asesor. |
+
+    <Note>
+      El registro de asesores usa una app de Firebase secundaria para crear la cuenta sin cerrar la sesión del administrador.
+    </Note>
+
+    ### Editar asesor
+
+    Al hacer clic en **Editar** en la tabla de asesores, el formulario cambia al modo edición. Solo se pueden modificar:
+
+    - **Nombre Completo**
+    - **Número de WhatsApp**
+
+    El campo **Email** queda deshabilitado porque es el identificador de autenticación y no puede cambiarse desde este panel.
+
+    ### Eliminar asesor
+
+    Al hacer clic en **Eliminar**, el sistema solicita confirmación y luego borra el documento del asesor de la colección `usuarios` en Firestore.
+
+    <Warning>
+      Eliminar un asesor lo borra del listado y revoca su acceso al panel, pero **no elimina la cuenta de Firebase Authentication**. Para eliminarlo completamente de Auth, hazlo desde la consola de Firebase.
+    </Warning>
+
+    ### Tabla de asesores registrados
+
+    Muestra el listado completo con columnas: Nombre, Email, WhatsApp, Rol y Acciones (Editar / Eliminar).
+
+  </Tab>
+
+  <Tab title="Carrusel Hero">
+
+    Esta pestaña administra los slides del carrusel principal que aparece en la portada de la tienda. Los slides se almacenan en la colección `carrusel` de Firestore y se ordenan de forma ascendente por el campo `orden`.
+
+    ### Formulario de slide
+
+    | Campo | Requerido | Descripción |
+    |-------|-----------|-------------|
+    | **URL de la Imagen** | Sí | Enlace directo a la imagen del slide (debe comenzar con `http://` o `https://`). El formulario muestra una vista previa al detectar una URL válida. |
+    | **Título / Texto del slide** | No | Texto superpuesto sobre la imagen con fondo oscuro para mejorar la legibilidad (ej. `¡Ofertas Especiales!`). |
+    | **Orden de visualización** | Sí | Número entero que determina la posición del slide en el carrusel (1, 2, 3…). Los valores menores se muestran primero. |
+    | **Activo** (toggle) | — | Solo los slides activos se muestran en la portada. Valor por defecto: activo. |
+
+    ### Vista previa de imagen
+
+    Al ingresar una URL válida en el campo **URL de la Imagen**, el formulario muestra automáticamente una vista previa de la imagen. Si la URL no carga correctamente, se muestra un mensaje de error en el área de previsualización.
+
+    ### Tabla de slides
+
+    Muestra todos los slides ordenados por su número de orden, con las columnas: imagen miniatura, título, orden, estado (Activo / Inactivo) y acciones.
+
+    Desde la tabla puedes:
+    - **Editar** un slide: carga sus datos en el formulario superior.
+    - **Activar / Desactivar** un slide directamente sin abrir el formulario.
+    - **Eliminar** un slide: solicita confirmación antes de borrar permanentemente.
+
+  </Tab>
+</Tabs>

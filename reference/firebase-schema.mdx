@@ -1,0 +1,363 @@
+---
+title: "Esquema de datos en Firestore"
+description: "Documentación de todas las colecciones de Firestore usadas por GIO TECH: campos, tipos, ejemplos y reglas de seguridad."
+keywords: ["firestore", "esquema", "colecciones", "productos", "usuarios", "configuracion", "carrusel", "reglas"]
+---
+
+GIO TECH usa **Cloud Firestore** como única fuente de verdad. A continuación se describen todas las colecciones, sus campos y los ejemplos de documentos reales.
+
+<Info>
+  Todos los IDs de documento son generados automáticamente por Firestore, excepto en `configuracion` donde el único documento se llama `general`, y en `usuarios` donde el ID es el UID de Firebase Authentication.
+</Info>
+
+---
+
+## Colección `productos`
+
+Catálogo público de equipos disponibles en la tienda. Cualquier visitante puede leer; solo el rol `admin` puede escribir.
+
+### Campos
+
+<ResponseField name="nombre" type="string" required>
+  Nombre comercial del equipo. Ejemplo: `"Samsung Galaxy A55 5G"`.
+</ResponseField>
+
+<ResponseField name="descripcion" type="string" required>
+  Descripción técnica en texto libre. Se parsea automáticamente para extraer el objeto `specs`.
+</ResponseField>
+
+<ResponseField name="contado" type="number" required>
+  Precio de contado en pesos colombianos (COP).
+</ResponseField>
+
+<ResponseField name="cuotas6" type="number" required>
+  Valor de cada cuota en el plan de 16 quincenas (8 meses). Nombre histórico del campo.
+</ResponseField>
+
+<ResponseField name="cuotas8" type="number" required>
+  Valor de cada cuota en el plan de 8 cuotas mensuales.
+</ResponseField>
+
+<ResponseField name="cuotaInicial" type="number" required>
+  Cuota inicial requerida para financiación.
+</ResponseField>
+
+<ResponseField name="imagen" type="string" required>
+  URL pública de la imagen del producto (Firebase Storage o externa).
+</ResponseField>
+
+<ResponseField name="specs" type="object">
+  Especificaciones técnicas extraídas automáticamente de `descripcion`.
+  <Expandable title="propiedades de specs">
+    <ResponseField name="almacenamiento" type="number | null">
+      Almacenamiento interno en GB. `null` si no se detecta en la descripción.
+    </ResponseField>
+    <ResponseField name="ram" type="number | null">
+      Memoria RAM en GB. `null` si no se detecta.
+    </ResponseField>
+    <ResponseField name="camara" type="number | null">
+      Resolución de la cámara principal en megapíxeles. `null` si no se detecta.
+    </ResponseField>
+    <ResponseField name="pantalla" type="number | null">
+      Tamaño de pantalla en pulgadas. `null` si no se detecta.
+    </ResponseField>
+    <ResponseField name="bateria" type="number | null">
+      Capacidad de batería en mAh. `null` si no se detecta.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="promo" type="boolean" required>
+  Indica si el producto tiene un precio de promoción activo.
+</ResponseField>
+
+<ResponseField name="promoPrice" type="number | null">
+  Precio promocional en COP. `null` cuando `promo` es `false`.
+</ResponseField>
+
+<ResponseField name="promoBadgeText" type="string | null">
+  Texto del badge de promo. Ejemplo: `"PROMO"`, `"OFERTA"`. `null` cuando `promo` es `false`.
+</ResponseField>
+
+<ResponseField name="promoBadgeBg" type="string | null">
+  Color de fondo del badge de promo en formato hex o rgba. Ejemplo: `"#d81b60"`. `null` cuando `promo` es `false`.
+</ResponseField>
+
+<ResponseField name="promoHighlight" type="string | null">
+  Color de resaltado de la tarjeta durante la promo (rgba o hex). `null` cuando `promo` es `false`.
+</ResponseField>
+
+<ResponseField name="nuevo" type="boolean" required>
+  Indica si el producto tiene activo el badge de "nuevo".
+</ResponseField>
+
+<ResponseField name="nuevoBadgeText" type="string | null">
+  Texto del badge de nuevo. Ejemplo: `"NUEVO"`. `null` cuando `nuevo` es `false`.
+</ResponseField>
+
+<ResponseField name="nuevoBadgeBg" type="string | null">
+  Color de fondo del badge de nuevo en formato hex. Ejemplo: `"#28a745"`. `null` cuando `nuevo` es `false`.
+</ResponseField>
+
+<ResponseField name="badgeMode" type="string" required>
+  Controla qué badge(s) se muestran visualmente en la tarjeta del producto.
+
+  Valores posibles: `"none"` · `"promo"` · `"nuevo"` · `"ambos"`
+</ResponseField>
+
+<ResponseField name="solo12Meses" type="boolean" required>
+  Cuando es `true`, el producto solo ofrece el plan de financiación exclusivo a 12 meses. Las opciones de 16 quincenas y 8 meses quedan deshabilitadas.
+</ResponseField>
+
+<ResponseField name="cuotas12" type="number | null">
+  Valor de la cuota mensual en el plan de 12 meses. Solo aplica cuando `solo12Meses` es `true`. `null` en caso contrario.
+</ResponseField>
+
+### Ejemplo de documento
+
+```json
+{
+  "nombre": "iPhone 15 Pro",
+  "descripcion": "128GB, Titanio Azul, cámara de 48MP, pantalla 6.1 pulgadas, batería 3274mAh, 8GB RAM",
+  "contado": 4500000,
+  "cuotas6": 300000,
+  "cuotas8": 600000,
+  "cuotaInicial": 500000,
+  "imagen": "https://firebasestorage.googleapis.com/v0/b/gio-tech.appspot.com/o/iphone15pro.jpg",
+  "specs": {
+    "almacenamiento": 128,
+    "ram": 8,
+    "camara": 48,
+    "pantalla": 6.1,
+    "bateria": 3274
+  },
+  "promo": false,
+  "promoPrice": null,
+  "promoBadgeText": null,
+  "promoBadgeBg": null,
+  "promoHighlight": null,
+  "nuevo": true,
+  "nuevoBadgeText": "NUEVO",
+  "nuevoBadgeBg": "#28a745",
+  "badgeMode": "nuevo",
+  "solo12Meses": true,
+  "cuotas12": 400000
+}
+```
+
+<Tip>
+  Cuando `solo12Meses` es `true`, los campos `cuotas6` y `cuotas8` siguen existiendo en el documento pero no se muestran al cliente en el catálogo ni en los mensajes de WhatsApp.
+</Tip>
+
+---
+
+## Colección `usuarios`
+
+Perfiles de usuarios autenticados. El ID del documento es el UID de Firebase Authentication. Cualquier usuario autenticado puede leer; solo `admin` puede crear y eliminar; cada usuario puede actualizar su propio documento.
+
+### Campos
+
+<ResponseField name="email" type="string" required>
+  Correo electrónico del usuario, idéntico al registrado en Firebase Authentication.
+</ResponseField>
+
+<ResponseField name="nombreCompleto" type="string" required>
+  Nombre completo del usuario, mostrado en el panel de administración.
+</ResponseField>
+
+<ResponseField name="rol" type="string" required>
+  Rol del usuario dentro de la aplicación. Determina qué panel se renderiza en `/panel`.
+
+  Valores posibles: `"admin"` · `"asesor"` · `"cliente"`
+</ResponseField>
+
+<ResponseField name="whatsappNumber" type="string">
+  Número de WhatsApp del asesor en formato internacional sin `+`. Ejemplo: `"573001234567"`. Solo relevante para el rol `asesor`; permite que los clientes que lleguen por enlace de referido contacten directamente al asesor.
+</ResponseField>
+
+### Ejemplo de documento
+
+```json
+{
+  "email": "maria.garcia@giotech.co",
+  "nombreCompleto": "María García",
+  "rol": "asesor",
+  "whatsappNumber": "573223001122"
+}
+```
+
+<Note>
+  Los usuarios con rol `cliente` son creados al autenticarse por primera vez si su documento no existe en Firestore. El rol `cliente` no otorga acceso al panel administrativo.
+</Note>
+
+---
+
+## Colección `configuracion`
+
+Contiene un único documento con ID `general` que almacena el nombre, logo y tema visual del negocio. Solo el rol `admin` puede escribir; lectura pública.
+
+### Documento: `general`
+
+<ResponseField name="nombre" type="string">
+  Nombre del negocio mostrado en el `Header`. Ejemplo: `"GIO TECH"`.
+</ResponseField>
+
+<ResponseField name="logo" type="string">
+  URL pública del logo del negocio. Se renderiza en el `Header`.
+</ResponseField>
+
+<ResponseField name="theme" type="object">
+  Configuración del tema visual temporal (por ejemplo, temporada navideña). Si no existe, se usa el tema por defecto.
+  <Expandable title="propiedades de theme">
+    <ResponseField name="enabled" type="boolean" required>
+      Activa o desactiva el tema. Cuando es `false`, las propiedades `start` y `end` son ignoradas.
+    </ResponseField>
+    <ResponseField name="start" type="Timestamp | null">
+      Fecha y hora de inicio del tema (Timestamp de Firestore). `null` si no tiene ventana temporal definida.
+    </ResponseField>
+    <ResponseField name="end" type="Timestamp | null">
+      Fecha y hora de fin del tema (Timestamp de Firestore). `null` si no tiene ventana temporal definida.
+    </ResponseField>
+    <ResponseField name="vars" type="object">
+      Variables CSS personalizadas que se inyectan en el documento para modificar colores y estilos.
+      <Expandable title="variables CSS de ejemplo">
+        <ResponseField name="--promo-badge-bg" type="string">
+          Color de fondo del badge de promoción. Ejemplo: `"#d81b60"`.
+        </ResponseField>
+        <ResponseField name="--promo-badge-text" type="string">
+          Color del texto del badge de promoción. Ejemplo: `"#ffffff"`.
+        </ResponseField>
+        <ResponseField name="--promo-highlight" type="string">
+          Color de resaltado semitransparente. Ejemplo: `"rgba(216,27,96,.18)"`.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Ejemplo de documento
+
+```json
+{
+  "nombre": "GIO TECH",
+  "logo": "https://firebasestorage.googleapis.com/v0/b/gio-tech.appspot.com/o/logo.png",
+  "theme": {
+    "enabled": true,
+    "start": "2024-12-01T00:00:00.000Z",
+    "end": "2025-01-06T23:59:59.000Z",
+    "vars": {
+      "--promo-badge-bg": "#c0392b",
+      "--promo-badge-text": "#ffffff",
+      "--promo-highlight": "rgba(192,57,43,.18)"
+    }
+  }
+}
+```
+
+---
+
+## Colección `carrusel`
+
+Diapositivas del carrusel hero de la `LandingPage`. Solo el rol `admin` puede crear, actualizar y eliminar; lectura pública.
+
+### Campos
+
+<ResponseField name="url_imagen" type="string" required>
+  URL pública de la imagen de la diapositiva.
+</ResponseField>
+
+<ResponseField name="titulo" type="string" required>
+  Texto superpuesto sobre la imagen en el carrusel.
+</ResponseField>
+
+<ResponseField name="orden" type="number" required>
+  Posición de la diapositiva en el carrusel. Valores más bajos aparecen primero.
+</ResponseField>
+
+<ResponseField name="activo" type="boolean" required>
+  Cuando es `false`, la diapositiva no se muestra en el carrusel aunque exista en Firestore.
+</ResponseField>
+
+<ResponseField name="createdAt" type="Timestamp" required>
+  Fecha y hora de creación del documento (Timestamp de Firestore).
+</ResponseField>
+
+### Ejemplo de documento
+
+```json
+{
+  "url_imagen": "https://firebasestorage.googleapis.com/v0/b/gio-tech.appspot.com/o/slide1.jpg",
+  "titulo": "Los mejores precios en celulares en Puerto Asís",
+  "orden": 1,
+  "activo": true,
+  "createdAt": "2024-11-15T10:30:00.000Z"
+}
+```
+
+---
+
+## Colección `producto_stats`
+
+Estadísticas de interacción por producto (vistas, clics en WhatsApp, etc.). Lectura y escritura pública para permitir el conteo sin autenticación.
+
+<Warning>
+  Las reglas actuales permiten escritura pública en `producto_stats`. Considera agregar validación de campos o rate limiting en Cloud Functions si el volumen de datos crece.
+</Warning>
+
+---
+
+## Reglas de seguridad de Firestore
+
+Las siguientes reglas están desplegadas en el proyecto y controlan el acceso a todas las colecciones:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // producto_stats: lectura y escritura pública
+    match /producto_stats/{statId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // carrusel: lectura pública, escritura solo admin
+    match /carrusel/{slideId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // productos: lectura pública, escritura solo admin
+    match /productos/{productId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // configuracion: lectura pública, escritura solo admin
+    match /configuracion/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+
+    // usuarios: lectura pública, creación y eliminación solo admin,
+    // actualización por el propio usuario o admin
+    match /usuarios/{userId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+      allow update: if request.auth != null
+        && (request.auth.uid == userId
+          || get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin');
+      allow delete: if request.auth != null
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'admin';
+    }
+  }
+}
+```
+
+<Note>
+  Las reglas usan `get()` para verificar el rol del usuario autenticado en cada operación de escritura. Esto implica una lectura adicional a Firestore por cada petición de escritura, lo que puede incrementar el conteo de lecturas facturadas.
+</Note>

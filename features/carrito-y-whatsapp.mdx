@@ -1,0 +1,158 @@
+---
+title: "Carrito de compras y cotización por WhatsApp"
+description: "Cómo funciona el carrito de intereses, el botón flotante de WhatsApp y la asignación dinámica de asesores por URL."
+keywords: ["carrito", "WhatsApp", "cotización", "asesor", "contexto", "Firestore"]
+---
+
+GIO TECH no procesa pagos en línea. En su lugar, el carrito actúa como una **lista de interés** que el cliente envía en un solo mensaje de WhatsApp para que un asesor confirme disponibilidad y condiciones de crédito.
+
+## Botón flotante del carrito
+
+El `CartFloatingButton` aparece en la esquina inferior **derecha** de las rutas `/` y `/catalogo`. Es un círculo rojo con el ícono de carrito y un contador numérico que muestra cuántos ítems hay en la lista.
+
+Al hacer clic, se abre un panel lateral (*offcanvas*) con los productos añadidos. Desde ese panel el cliente puede:
+
+- Ver cada producto con su nombre, imagen y modalidad elegida (contado o crédito)
+- Eliminar productos individuales con el ícono de papelera
+- Vaciar el carrito completo con **Vaciar Carrito**
+- Enviar la cotización completa a WhatsApp con **Enviar Cotización**
+
+<Note>
+  El estado del carrito se persiste en `localStorage` con la clave `gio-tech-cart`. Si el cliente cierra y vuelve a abrir el navegador, los productos siguen en el carrito.
+</Note>
+
+## Contexto del carrito (CartContext)
+
+`CartContext` expone las siguientes funciones y valores a toda la aplicación:
+
+| Valor / Función | Tipo | Descripción |
+|-----------------|------|-------------|
+| `cartItems` | `array` | Lista de ítems en el carrito |
+| `cartCount` | `number` | Número total de ítems |
+| `addToCart(product, type)` | `function` | Añade un producto; `type` es `'contado'` o `'credito'` |
+| `removeFromCart(itemId)` | `function` | Elimina un ítem por su `itemId` único |
+| `clearCart()` | `function` | Vacía el carrito completamente |
+
+Cada ítem en `cartItems` tiene un `itemId` que combina el ID de Firestore del producto con el tipo de cotización (`productId-contado` o `productId-credito`). Esto permite tener el mismo equipo en el carrito como contado y como crédito simultáneamente sin duplicados no deseados.
+
+## Formato del mensaje de WhatsApp del carrito
+
+Cuando el cliente hace clic en **Enviar Cotización**, se genera este mensaje:
+
+```text mensaje de cotización grupal
+Hola, estoy interesado en los siguientes productos de GIO TECH:
+
+1. Galaxy A55 - Precio al contado: $1.299.000
+2. Redmi Note 13 - Cotizar a crédito (Cuotas: Q$95.000 / M$165.000)
+
+¿Podrían darme más información y opciones de compra para estos productos?
+```
+
+Para cada ítem, la línea de precio sigue uno de estos formatos según la modalidad elegida:
+
+```text modalidad contado
+Precio al contado: $<contado>
+```
+
+```text modalidad crédito
+Cotizar a crédito (Cuotas: Q$<cuotas6> / M$<cuotas8>)
+```
+
+Donde `Q` representa la cuota quincenal (campo `cuotas6`) y `M` la cuota mensual (campo `cuotas8`).
+
+---
+
+## Botón flotante de WhatsApp
+
+El `WhatsappFloatingButton` aparece en la esquina inferior **izquierda** en **todas las páginas excepto `/login`**. Muestra el ícono de WhatsApp con una etiqueta **"¿Dudas? Escríbenos"** para invitar al cliente a contactar al asesor.
+
+Al hacer clic envía el siguiente mensaje prellenado:
+
+```text mensaje de contacto general
+Hola GIO TECH, me interesa recibir asesoría sobre un equipo
+```
+
+---
+
+## Mensajes de WhatsApp desde la tarjeta de producto
+
+Cuando el cliente elige **Comprar Ahora** directamente desde el modal de un producto, el mensaje varía según la modalidad y el plan de financiación:
+
+<Tabs>
+  <Tab title="Comprar al contado">
+    ```text mensaje contado (sin promo)
+    Hola, estoy interesado en comprar al contado el <nombre>.
+    Precio: <precio>.
+    ¿Está disponible para entrega inmediata?
+    ```
+
+    ```text mensaje contado (con promo activa)
+    Hola, estoy interesado en comprar el <nombre>.
+    Precio promocional: <precioPromo> (antes <precioRegular>).
+    ¿Está disponible para entrega inmediata?
+    ```
+  </Tab>
+  <Tab title="Crédito plan estándar">
+    Se usa cuando `solo12Meses` es `false` o no está definido:
+
+    ```text mensaje crédito estándar
+    Hola, estoy interesado en el <nombre> y me gustaría cotizarlo a crédito.
+    Precio contado: <precio>
+    Cuota inicial: <cuotaInicial>
+    16 cuotas quincenales: <cuotas6>
+    8 cuotas mensuales: <cuotas8>
+    ¿Me pueden dar más información sobre el crédito?
+    ```
+  </Tab>
+  <Tab title="Plan especial 12 meses">
+    Se usa cuando `solo12Meses: true` y el campo `cuotas12` tiene valor:
+
+    ```text mensaje plan especial 12 meses
+    Hola, estoy interesado en el <nombre> con el plan especial de 12 meses.
+    Precio contado: <precio>
+    Cuota inicial: <cuotaInicial>
+    12 cuotas mensuales: <cuotas12>
+    ¿Me pueden dar más información?
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## Contexto de número de WhatsApp (WhatsappNumberContext)
+
+Todos los botones y mensajes de WhatsApp del sistema obtienen el número de destino desde `WhatsappNumberContext`. El contexto sigue esta lógica de resolución:
+
+<Steps>
+  <Step title="Leer el parámetro ?asesor= de la URL">
+    Al cargar la página, el contexto lee `?asesor=<uid>` de la URL. Si existe, guarda el UID del asesor en `localStorage` (`currentAsesorId`) para mantenerlo activo mientras el cliente navega.
+
+    ```
+    https://giotech.app/catalogo?asesor=ABC123
+    ```
+  </Step>
+  <Step title="Recuperar el número desde Firestore">
+    Con el UID del asesor, el contexto suscribe un listener en tiempo real al documento `usuarios/<uid>` de Firestore y lee el campo `whatsappNumber`.
+  </Step>
+  <Step title="Usar el número de la tienda como fallback">
+    Si no hay parámetro `?asesor=`, si el documento no existe o si no tiene el campo `whatsappNumber`, el contexto usa el número general de la tienda: **`573223652569`**.
+
+    <Note>
+      En la ruta raíz (`/`), el contexto siempre usa el número general y limpia el `localStorage`, incluso si hay un ID almacenado previamente.
+    </Note>
+  </Step>
+</Steps>
+
+### Flujo de asignación de asesor
+
+Cuando un asesor comparte su catálogo personalizado, añade su UID como parámetro a la URL:
+
+```
+https://giotech.app/?asesor=uid_del_asesor
+```
+
+Todos los mensajes de WhatsApp generados durante esa sesión (carrito, compra directa, servicio técnico, chat de IA) van al número personal de ese asesor. Esto permite que cada asesor lleve el seguimiento de sus propios clientes.
+
+<Tip>
+  Los asesores pueden compartir su URL personalizada por WhatsApp, Instagram o cualquier canal. Mientras el cliente no cierre la sesión del navegador, el asesor queda asignado.
+</Tip>

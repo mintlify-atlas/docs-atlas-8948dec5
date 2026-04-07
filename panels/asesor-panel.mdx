@@ -1,0 +1,113 @@
+---
+title: "Panel del asesor"
+description: "Guía del Panel del Asesor de GIO TECH: configura tu número de WhatsApp y comparte tu enlace personalizado para recibir cotizaciones de clientes."
+keywords: ["asesor", "panel", "whatsapp", "enlace", "cotización", "compartir"]
+---
+
+El Panel del Asesor permite a cada vendedor gestionar su información de contacto y obtener un enlace único para recibir cotizaciones directamente desde la tienda virtual.
+
+<Warning>
+  El acceso al Panel del Asesor requiere una cuenta con rol **asesor**. El administrador del sistema debe registrarte previamente desde el [Panel de Administración](/panels/admin-panel).
+</Warning>
+
+## Acceso
+
+<Steps>
+  <Step title="Ir a la página de inicio de sesión">
+    Navega a `/login` e ingresa el correo electrónico y la contraseña que el administrador te asignó al registrarte.
+  </Step>
+  <Step title="Autenticarse">
+    Haz clic en **Ingresar**. El sistema verifica tu rol en Firestore. Si tu documento tiene `rol: "asesor"`, serás redirigido automáticamente a `/panel`.
+  </Step>
+  <Step title="Acceder al panel">
+    Verás el Panel del Asesor con tu nombre completo en el encabezado y dos secciones: **Tu Información de Contacto** y **Tu Enlace Único de Compartir**.
+  </Step>
+</Steps>
+
+---
+
+## Funcionalidades
+
+### Información personal
+
+En la parte superior del panel puedes ver:
+
+- **Nombre completo**: tal como fue registrado por el administrador.
+- **Correo electrónico**: el correo asociado a tu cuenta de acceso.
+
+### Actualizar tu número de WhatsApp
+
+El número de WhatsApp es el canal de contacto que los clientes usan cuando hacen una cotización a través de tu enlace personalizado.
+
+<Steps>
+  <Step title="Localizar el campo">
+    En la sección **Tu Información de Contacto**, encuentra el campo **Número de WhatsApp Personal**.
+  </Step>
+  <Step title="Ingresar el número">
+    Escribe tu número en formato internacional. Ejemplo:
+
+    ```text
+    573XXXXXXXXX
+    ```
+
+    Donde `57` es el código de país de Colombia y los dígitos siguientes son tu número celular sin el cero inicial.
+  </Step>
+  <Step title="Guardar los cambios">
+    Haz clic en **Actualizar Número**. El sistema guarda el cambio en tu documento de Firestore (`usuarios/{uid}`) y muestra un mensaje de confirmación.
+  </Step>
+</Steps>
+
+<Note>
+  Este número es el que los clientes ven al hacer clic en el botón de WhatsApp de la tienda cuando llegan a través de tu enlace. Mantenerlo actualizado garantiza que las cotizaciones te lleguen directamente a ti.
+</Note>
+
+---
+
+### Tu enlace único de compartir
+
+Cada asesor recibe un enlace personalizado generado automáticamente con el formato:
+
+```text
+{baseUrl}/?asesor={uid}
+```
+
+Donde `{uid}` es tu identificador único en Firebase Authentication.
+
+**Ejemplo:**
+
+```text
+https://gio-tech.com/?asesor=abc123xyz789
+```
+
+#### Cómo funciona el enlace
+
+Cuando un cliente visita la tienda a través de tu enlace, el parámetro `asesor` queda activo en la sesión. A partir de ese momento, el botón de WhatsApp en cada tarjeta de producto usa **tu número** para redirigir la conversación, en lugar del número genérico de la tienda.
+
+Esto permite al administrador saber qué asesor originó cada venta y garantiza que los clientes se comuniquen directamente contigo.
+
+#### Copiar el enlace
+
+Haz clic en el botón **Copiar Enlace** para copiar automáticamente la URL al portapapeles. Aparecerá un mensaje de confirmación que se oculta después de tres segundos.
+
+---
+
+## Configuración y uso del enlace
+
+<Steps>
+  <Step title="Verifica tu número de WhatsApp">
+    Antes de compartir tu enlace, asegúrate de que tu número de WhatsApp esté actualizado y sea correcto.
+  </Step>
+  <Step title="Copia tu enlace único">
+    En la sección **Tu Enlace Único de Compartir**, haz clic en **Copiar Enlace**.
+  </Step>
+  <Step title="Comparte el enlace con tus clientes">
+    Pega el enlace en tus conversaciones de WhatsApp, en tus redes sociales o en cualquier canal donde atiendas clientes. Cuando visiten la tienda a través de ese enlace, cualquier cotización que hagan llegará directamente a tu WhatsApp.
+  </Step>
+  <Step title="Atiende las cotizaciones">
+    Cada vez que un cliente haga clic en el botón de WhatsApp de un producto en la tienda, recibirás un mensaje con la información del equipo que le interesa.
+  </Step>
+</Steps>
+
+<Tip>
+  Comparte tu enlace en tu historia de WhatsApp, en Instagram, en grupos de Facebook o en cualquier plataforma donde tengas clientes potenciales. Cuanto más difundas el enlace, más cotizaciones personalizadas recibirás directamente en tu WhatsApp.
+</Tip>

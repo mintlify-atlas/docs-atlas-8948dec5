@@ -1,0 +1,93 @@
+---
+title: "Variables de entorno"
+description: "Cómo configurar el archivo .env con las credenciales de Firebase para ejecutar GIO TECH localmente."
+---
+
+GIO TECH usa Vite, que expone variables de entorno al navegador únicamente cuando su nombre comienza con el prefijo `VITE_`. Todas las credenciales de Firebase se pasan a través de un archivo `.env` en la raíz del proyecto.
+
+<Warning>
+  Nunca subas el archivo `.env` a Git. Ya está incluido en `.gitignore`, pero verifica que no lo hayas eliminado de esa lista accidentalmente.
+</Warning>
+
+## Variables requeridas
+
+### Firebase (obligatorias)
+
+| Variable | Descripción |
+|---|---|
+| `VITE_FIREBASE_API_KEY` | Clave pública de la API del proyecto |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Dominio de autenticación (`tu-proyecto.firebaseapp.com`) |
+| `VITE_FIREBASE_PROJECT_ID` | ID único del proyecto Firebase |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Bucket de Storage (`tu-proyecto.firebasestorage.app`) |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | ID del remitente para Firebase Cloud Messaging |
+| `VITE_FIREBASE_APP_ID` | ID de la aplicación web registrada |
+
+### Asistente de IA (opcional)
+
+| Variable | Descripción |
+|---|---|
+| `VITE_GROQ_API_KEY` | API Key de [Groq](https://groq.com/) para el asistente de recomendaciones de productos. Sin este valor, el asistente muestra un mensaje de error al cliente. |
+
+<Info>
+  La variable `VITE_GROQ_API_KEY` es opcional para el funcionamiento básico de la tienda. Sin ella, el catálogo funciona con normalidad; solo el botón del asistente de IA dejará de responder.
+</Info>
+
+## Archivo .env de ejemplo
+
+Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido, reemplazando los valores de ejemplo con los reales de tu proyecto:
+
+```bash .env
+# Firebase
+VITE_FIREBASE_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+VITE_FIREBASE_AUTH_DOMAIN=tu-proyecto.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=tu-proyecto
+VITE_FIREBASE_STORAGE_BUCKET=tu-proyecto.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789012
+VITE_FIREBASE_APP_ID=1:123456789012:web:abcdef1234567890abcdef
+
+# Asistente IA (opcional)
+VITE_GROQ_API_KEY=gsk_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+## Dónde encontrar los valores
+
+<Steps>
+  <Step title="Abrir la consola de Firebase">
+    Ve a [console.firebase.google.com](https://console.firebase.google.com) y selecciona tu proyecto.
+  </Step>
+  <Step title="Ir a la configuración del proyecto">
+    Haz clic en el ícono de engranaje junto a **Descripción general del proyecto** y selecciona **Configuración del proyecto**.
+  </Step>
+  <Step title="Copiar las credenciales">
+    En la pestaña **General**, desplázate hasta la sección **Tus apps**. Selecciona la app web registrada y copia cada valor del objeto `firebaseConfig`.
+  </Step>
+</Steps>
+
+## Cómo se usan en el código
+
+El archivo `src/firebase.js` lee estas variables con `import.meta.env` (la API de Vite para variables de entorno) y las pasa al inicializador de Firebase:
+
+```javascript src/firebase.js
+import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+export { auth, db };
+```
+
+<Note>
+  El prefijo `VITE_` es obligatorio. Las variables sin ese prefijo **no** se exponen al código del navegador y devolverán `undefined` en tiempo de ejecución.
+</Note>
